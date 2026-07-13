@@ -5,7 +5,8 @@
 //     → URL 등록(register.js)으로 개별 영상의 실지표를 수집.
 //   - 데모 데이터는 기본 비활성(DEMO_DATA=1 일 때만 생성). 가짜가 실제 트렌드로 표시되지 않도록.
 import { collectYoutube } from './youtube.js';
-import { collectYoutubeWeb } from './youtube-web.js';
+import { collectYoutubeWeb, enrichFromWatchPage } from './youtube-web.js';
+import { fetchChannelProfile } from './channel.js';
 import { generateDemoVideos, evolveDemoVideos } from './demo.js';
 import { classify } from '../classify.js';
 import * as store from '../store.js';
@@ -72,7 +73,65 @@ export async function collectAll({ demoOnly = false } = {}) {
     }
   }
 
-  // 4) 분류 후 저장
+  // 4) VPH(시간당 조회수) 재료: 이번 배치에 없는 기존 유튜브 영상의 조회수를 재수집해
+  //    스냅샷을 쌓는다. 최근 14일 내 갱신된 상위 20개만 (가벼운 워치 페이지 재조회).
+  if (!demoOnly) {
+    try {
+      const inBatch = new Set(videos.map(v => `${v.platform}:${v.id}`));
+      const cutoff = Date.now() - 14 * 86400e3;
+      const stale = store.getVideos()
+        .filter(v => v.platform === 'youtube' && !isDemo(v) && !inBatch.has(v.key)
+          && new Date(v.updatedAt || 0).getTime() > cutoff)
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 20);
+      let ri = 0;
+      await Promise.all(Array.from({ length: 4 }, async () => {
+        while (ri < stale.length) {
+          const v = stale[ri++];
+          const before = v.views;
+          await enrichFromWatchPage(v);
+          if (v.views !== before) videos.push(v); // 스냅샷 기록 대상에 포함
+        }
+      }));
+      if (stale.length) results.sources.resnapshot = `기존 영상 ${stale.length}건 조회수 재수집 (VPH)`;
+    } catch (e) { results.errors.resnapshot = e.message; }
+  }
+
+  // 5) 아웃라이어 기준선: 수집 영상의 채널 프로필(구독자·최근 영상 중앙값)을 배치 파싱.
+  //    12시간 내 캐시된 채널은 건너뛰고, 조회수 상위 채널 25개만 (요청 부하 제한).
+  if (!demoOnly) {
+    try {
+      const byChannel = new Map();
+      for (const v of videos) {
+        const h = v.channelHandle || v.channelId;
+        if (v.platform !== 'youtube' || !h) continue;
+        const cur = byChannel.get(h) || 0;
+        byChannel.set(h, Math.max(cur, v.views));
+      }
+      const staleCh = [...byChannel.entries()]
+        .filter(([h]) => {
+          const c = store.getChannel(h);
+          return !c || Date.now() - new Date(c.fetchedAt).getTime() > 12 * 3600e3;
+        })
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 25)
+        .map(([h]) => h);
+      let ci = 0, chOk = 0;
+      await Promise.all(Array.from({ length: 3 }, async () => {
+        while (ci < staleCh.length) {
+          const h = staleCh[ci++];
+          try {
+            const p = await fetchChannelProfile(h, { withShorts: false });
+            store.upsertChannel(h, p);
+            chOk++;
+          } catch { /* 개별 채널 실패 무시 */ }
+        }
+      }));
+      if (staleCh.length) results.sources.channels = `채널 기준선 ${chOk}/${staleCh.length}건 수집 (아웃라이어 점수)`;
+    } catch (e) { results.errors.channels = e.message; }
+  }
+
+  // 6) 분류 후 저장
   videos = videos.map(v => ({ ...v, category: v.category || classify(v) }));
   if (videos.length) store.upsertVideos(videos);
   const anyLive = youtubeLive || hasLiveYoutubeStored;

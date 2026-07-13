@@ -116,8 +116,23 @@ function renderKPI(s) {
   document.getElementById('kpi-eng-sub').textContent =
     `좋아요 ${fmt(s.totalLikes)} · 댓글 ${fmt(s.totalComments)} · 공유 ${fmt(s.totalShares)}`;
 
-  document.getElementById('kpi-rising').textContent = s.risingCount + '개 🔥';
-  document.getElementById('kpi-rising-sub').textContent = '직전 수집 대비 조회수 성장률 기준';
+  document.getElementById('kpi-rising').textContent = (s.outlierCount ?? 0) + '개 💥';
+  document.getElementById('kpi-rising-sub').textContent =
+    `채널 평균 2배↑ 기준 · 🔥 가속 중 ${s.acceleratingCount ?? 0}개 · 급상승 ${s.risingCount}개`;
+}
+
+// 아웃라이어 배지: 채널 최근 영상 중앙값 대비 몇 배 터졌는지 (2x 미만은 미표시)
+function outlierBadge(v, { compact = false } = {}) {
+  const o = v.outlier;
+  if (!o || o.mult < 2) return '';
+  const x = o.mult >= 10 ? Math.round(o.mult) : o.mult.toFixed(1);
+  const title = `채널 최근 영상 중앙값(${fmt(o.baseline || 0)}회) 대비 ${x}배 — 구독자 ${fmt(o.channelSubs || 0)}명`;
+  return `<span class="outlier-chip ol-${o.level}" title="${esc(title)}">💥 ${x}x</span>`;
+}
+// VPH(시간당 조회수) 배지 — 가속 중이면 🔥
+function vphBadge(v) {
+  if (!v.vph) return '';
+  return `<span class="vph-badge ${v.accelerating ? 'hot' : ''}" title="시간당 조회수 (스냅샷 차분)">${v.accelerating ? '🔥 ' : ''}${fmt(v.vph)}/h</span>`;
 }
 
 function renderCategoryOptions(categories) {
@@ -315,13 +330,14 @@ function renderCards(videos) {
       <div class="thumb">
         ${thumb}
         <span class="pf-chip pf-badge pf-${v.platform}">${PLATFORM_LABEL[v.platform] || v.platform}</span>
+        ${outlierBadge(v)}
         ${isDemo ? '<span class="demo-chip">데모</span>' : '<div class="play">▶️</div>'}
       </div>
       <div class="card-body">
         <div class="card-title" title="${esc(v.title)}">${esc(v.title)}</div>
         <div class="card-meta">
           <span>${esc(v.channel || '')}</span>
-          <span>${v.views ? '조회 ' + fmt(v.views) : (v.likes ? '♥ ' + fmt(v.likes) : '')}</span>
+          <span>${vphBadge(v)} ${v.views ? '조회 ' + fmt(v.views) : (v.likes ? '♥ ' + fmt(v.likes) : '')}</span>
         </div>
         <div class="card-meta">
           <span>게시 ${fmtDate(v.publishedAt) !== '–' ? fmtDate(v.publishedAt) : esc(v.publishedText || '–')}</span>
@@ -360,7 +376,7 @@ function closeModal() {
 function renderTable(videos) {
   if (!videos.length) {
     document.getElementById('video-rows').innerHTML =
-      '<tr><td colspan="12" class="muted" style="text-align:center;padding:24px;">표시할 영상이 없습니다. 유튜브를 수집하거나 URL을 등록하세요.</td></tr>';
+      '<tr><td colspan="14" class="muted" style="text-align:center;padding:24px;">표시할 영상이 없습니다. 유튜브를 수집하거나 URL을 등록하세요.</td></tr>';
     return;
   }
   document.getElementById('video-rows').innerHTML = videos.map((v, i) => {
@@ -376,7 +392,9 @@ function renderTable(videos) {
       </td>
       <td><span class="pf-badge pf-${v.platform}">${PLATFORM_LABEL[v.platform] || v.platform}</span></td>
       <td><span class="cat-badge">${esc(v.category)}</span></td>
+      <td class="num">${outlierBadge(v) || '<span class="muted">–</span>'}</td>
       <td class="num">${fmt(v.views)}</td>
+      <td class="num">${vphBadge(v) || '<span class="muted">–</span>'}</td>
       <td class="num">${v.likes ? fmt(v.likes) : '–'}</td>
       <td class="num">${v.comments ? fmt(v.comments) : '–'}</td>
       <td class="num">${v.shares ? fmt(v.shares) : '–'}</td>
@@ -493,8 +511,22 @@ async function openDeconstruct(key) {
   if (r.error) { body.innerHTML = `<div class="ai-note">분석 오류: ${esc(r.error)}</div>`; return; }
   const a = r.analysis;
   document.getElementById('analysis-title').textContent = `🔬 ${r.video.title.slice(0, 40)}`;
+  const gauge = (label, s) => s ? `
+    <div class="score-gauge">
+      <div class="sg-head"><span>${label}</span><b class="sg-num ${s.score >= 80 ? 'high' : s.score >= 60 ? 'mid' : ''}">${s.score}</b></div>
+      <div class="sg-bar"><div class="sg-fill ${s.score >= 80 ? 'high' : s.score >= 60 ? 'mid' : ''}" style="width:${Math.min(99, s.score)}%"></div></div>
+      <div class="sg-reason">${esc(s.reason)}</div>
+    </div>` : '';
+  const scoresHtml = a.scores ? `
+    <h4>📊 바이럴 점수 <span class="h-sub">훅·전개·트렌드 정합성 각 0~99점, 근거 포함</span></h4>
+    <div class="score-grid">
+      ${gauge('🎣 훅 (첫 3초)', a.scores.hook)}
+      ${gauge('🌊 전개 (끝까지 보게)', a.scores.flow)}
+      ${gauge('📈 트렌드 정합성', a.scores.trend)}
+    </div>` : '';
   body.innerHTML = `
     <div class="an-summary">${esc(a.summary)}</div>
+    ${scoresHtml}
     <h4>🎣 훅 분석</h4>
     <div class="an-hook"><span class="hk-text">${esc(a.hook.text)}</span><span class="hk-type">${esc(a.hook.type)}</span>
       <div class="muted" style="margin-top:6px;">${esc(a.hook.why)}</div></div>

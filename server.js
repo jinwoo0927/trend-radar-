@@ -12,6 +12,7 @@ import {
 import { CATEGORIES, classify as classifyVideo } from './src/classify.js';
 import { callClaude, aiEnabled, aiModel, aiInfo } from './src/ai.js';
 import { fetchYoutubeTranscript, ytDlpAvailable } from './src/collectors/transcript.js';
+import { fetchChannelProfile, outlierBracket } from './src/collectors/channel.js';
 
 const PLATFORM_LABEL = { youtube: '유튜브', tiktok: '틱톡', instagram: '인스타그램', threads: '스레드' };
 const isScriptPlatform = p => p === 'youtube' || p === 'tiktok'; // 대본형 vs 글형
@@ -65,6 +66,9 @@ function sorted(videos, sortKey) {
   if (sortKey === 'publishedAt') {
     return [...videos].sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')));
   }
+  if (sortKey === 'outlier') {
+    return [...videos].sort((a, b) => (b.outlier?.mult ?? 0) - (a.outlier?.mult ?? 0));
+  }
   return [...videos].sort((a, b) => (b[sortKey] ?? 0) - (a[sortKey] ?? 0));
 }
 
@@ -108,6 +112,8 @@ app.get('/api/dashboard', (req, res) => {
       totalViews, totalLikes, totalComments, totalShares,
       avgEngagement: engViews ? engActions / engViews : 0,
       risingCount: videos.filter(v => v.risingScore > 15).length,
+      outlierCount: videos.filter(v => (v.outlier?.mult || 0) >= 2).length,
+      acceleratingCount: videos.filter(v => v.accelerating).length,
       viewsDelta,
     },
     categories: CATEGORIES,
@@ -223,7 +229,9 @@ app.post('/api/deconstruct', async (req, res) => {
     `당신은 한국 SNS 바이럴 콘텐츠 분석가입니다. 아래는 실제로 인기를 얻은 ${item.platform} ${kind} 콘텐츠와 그 지표입니다.\n` +
     `이 콘텐츠가 "왜" 좋아요·공유·조회가 잘 되었는지 구조적으로 해부해 주세요. ` +
     `${item.script ? '특히 script(실제 발화 대본)의 오프닝 훅·전개·마무리 구조를 문장 단위로 분석하고, ' : '제목/캡션/본문 텍스트와 지표를 근거로 '}` +
-    `내가 같은 성공 요소를 재현할 수 있도록 실전 팁을 주세요. 추측이 아니라 주어진 텍스트·대본·지표에 근거하세요.\n\n` +
+    `내가 같은 성공 요소를 재현할 수 있도록 실전 팁을 주세요. 추측이 아니라 주어진 텍스트·대본·지표에 근거하세요.\n` +
+    `또한 바이럴 점수 3축(scores)을 채점하세요 — hook(첫 부분이 스크롤을 멈추게 하는 힘), flow(끝까지 보게 하는 전개·완급), trend(현재 트렌드·검증된 포맷과의 정합성). ` +
+    `각 축은 0~99 정수이며, reason에는 반드시 이 콘텐츠의 실제 문장·지표를 인용한 근거를 쓰세요. 점수는 냉정하게: 평범하면 40~60, 뛰어나야 80+.\n\n` +
     `[콘텐츠 데이터]\n${JSON.stringify(item, null, 2)}`;
 
   const schema = {
@@ -240,8 +248,18 @@ app.post('/api/deconstruct', async (req, res) => {
       targetEmotion: { type: 'string' },                 // 겨냥한 감정/심리
       formula: { type: 'string' },                       // 재현 공식 한 문장
       applyTips: { type: 'array', items: { type: 'string' } }, // 내 콘텐츠 적용법
+      scores: { type: 'object', additionalProperties: false,  // 바이럴 3축 점수 (Opus Clip 방식)
+        properties: {
+          hook: { type: 'object', additionalProperties: false,
+            properties: { score: { type: 'integer' }, reason: { type: 'string' } }, required: ['score', 'reason'] },
+          flow: { type: 'object', additionalProperties: false,
+            properties: { score: { type: 'integer' }, reason: { type: 'string' } }, required: ['score', 'reason'] },
+          trend: { type: 'object', additionalProperties: false,
+            properties: { score: { type: 'integer' }, reason: { type: 'string' } }, required: ['score', 'reason'] },
+        },
+        required: ['hook', 'flow', 'trend'] },
     },
-    required: ['summary', 'hook', 'structure', 'viralFactors', 'targetEmotion', 'formula', 'applyTips'],
+    required: ['summary', 'hook', 'structure', 'viralFactors', 'targetEmotion', 'formula', 'applyTips', 'scores'],
   };
 
   const out = await callClaude(prompt, schema, { maxTokens: 2500, effort: 'medium' });
@@ -330,6 +348,32 @@ app.post('/api/studio', async (req, res) => {
     references: refs.map(r => ({ key: r.key, title: r.title, platform: r.platform, url: r.url })),
     result: out.data,
   });
+});
+
+// 📡 채널 분석 — 구독자·최근 영상·중앙값·영상별 아웃라이어 배수 (키 불필요)
+app.get('/api/channel', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: '채널 @핸들 또는 URL을 입력해 주세요.' });
+  try {
+    const p = await fetchChannelProfile(q);
+    store.upsertChannel(p.handle || q, p);
+    const withOutlier = list => list.map(v => ({
+      ...v,
+      outlier: p.medianViews || p.medianShorts
+        ? { mult: +(v.views / ((list === p.shorts ? p.medianShorts : p.medianViews) || p.medianViews || p.medianShorts)).toFixed(1) }
+        : null,
+      url: `https://www.youtube.com/watch?v=${v.id}`,
+      thumbnail: `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`,
+    }));
+    res.json({
+      handle: p.handle, name: p.name, subscribers: p.subscribers,
+      medianViews: p.medianViews, medianShorts: p.medianShorts,
+      videos: withOutlier(p.videos), shorts: withOutlier(p.shorts),
+      fetchedAt: p.fetchedAt,
+    });
+  } catch (e) {
+    res.status(502).json({ error: `채널을 불러오지 못했습니다: ${e.message}` });
+  }
 });
 
 // 수집 실행 (수동 트리거)

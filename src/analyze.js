@@ -1,9 +1,49 @@
-// 트렌드 분석 엔진: 인게이지먼트율, 급상승 점수, 성장 속도, 키워드 추출, 인사이트 생성
-import { getSnapshots, getAllSnapshots } from './store.js';
+// 트렌드 분석 엔진: 인게이지먼트율, 급상승 점수, 아웃라이어, VPH, 키워드 추출, 인사이트 생성
+import { getSnapshots, getAllSnapshots, getChannel } from './store.js';
+import { outlierBracket } from './collectors/channel.js';
 
 export function engagementRate(v) {
   if (!v.views) return 0;
   return (v.likes + v.comments + (v.shares || 0)) / v.views;
+}
+
+// 아웃라이어 점수: 조회수 ÷ 소속 채널 최근 영상 조회수 중앙값 (1of10·vidIQ 방식)
+// 채널 기준선이 아직 수집 안 된 영상은 0 (배지 미표시).
+export function outlierOf(v) {
+  if (v.platform !== 'youtube' || !v.views) return null;
+  const ch = getChannel(v.channelHandle || v.channelId || '');
+  if (!ch) return null;
+  const isShort = /\/shorts\//.test(v.url || '');
+  const baseline = (isShort ? ch.medianShorts : ch.medianViews) || ch.medianViews || ch.medianShorts;
+  if (!baseline || baseline < 100) return null;
+  const mult = v.views / baseline;
+  return { mult: +mult.toFixed(1), ...outlierBracket(mult), channelSubs: ch.subscribers, baseline };
+}
+
+// VPH(시간당 조회수)와 가속 여부 — 스냅샷 차분으로 계산 (vidIQ Velocity 방식)
+export function vphOf(v) {
+  const snaps = getSnapshots(v.key);
+  if (snaps.length < 2) return { vph: 0, accelerating: false };
+  const last = snaps[snaps.length - 1];
+  // 마지막 스냅샷보다 1시간 이상 이전의 기준점을 찾는다 (없으면 최초 스냅샷)
+  let ref = snaps[0];
+  for (let i = snaps.length - 2; i >= 0; i--) {
+    if (new Date(last.at) - new Date(snaps[i].at) >= 3600e3) { ref = snaps[i]; break; }
+  }
+  const hours = (new Date(last.at) - new Date(ref.at)) / 3600e3;
+  if (hours < 0.25) return { vph: 0, accelerating: false };
+  const vph = Math.max(0, (last.views - ref.views) / hours);
+  // 가속: 기준점 이전 구간의 VPH보다 20%+ 빠르면 "가속 중"
+  let accelerating = false;
+  const first = snaps.find(s => s.at < ref.at);
+  if (first) {
+    const h2 = (new Date(ref.at) - new Date(first.at)) / 3600e3;
+    if (h2 >= 0.25) {
+      const prevVph = Math.max(0, (ref.views - first.views) / h2);
+      accelerating = vph > prevVph * 1.2 && vph > 100;
+    }
+  }
+  return { vph: Math.round(vph), accelerating };
 }
 
 // 급상승 점수: 최근 스냅샷 구간의 조회수 증가율(%)이 주 신호, 인게이지먼트는 보조 가중
@@ -19,11 +59,17 @@ export function risingScore(v) {
 }
 
 export function withMetrics(videos) {
-  return videos.map(v => ({
-    ...v,
-    engagementRate: engagementRate(v),
-    risingScore: risingScore(v),
-  }));
+  return videos.map(v => {
+    const { vph, accelerating } = vphOf(v);
+    return {
+      ...v,
+      engagementRate: engagementRate(v),
+      risingScore: risingScore(v),
+      outlier: outlierOf(v),
+      vph,
+      accelerating,
+    };
+  });
 }
 
 const STOPWORDS = new Set([

@@ -303,6 +303,36 @@ select {
   position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 3px 8px;
   border-radius: 10px; background: rgba(0,0,0,.55); color: var(--muted); border: 1px solid var(--border);
 }
+/* 💥 아웃라이어 배지 — 채널 평균 대비 몇 배 터졌는지 (vidIQ 색상 브래킷 관례) */
+.outlier-chip {
+  font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 10px;
+  white-space: nowrap; letter-spacing: .2px;
+}
+.outlier-chip.ol-mid  { background: rgba(59,130,246,.18); color: #7cb3ff; border: 1px solid rgba(59,130,246,.45); }
+.outlier-chip.ol-high { background: rgba(168,85,247,.20); color: #cf9bff; border: 1px solid rgba(168,85,247,.5); }
+.outlier-chip.ol-mega { background: rgba(244,63,94,.22); color: #ff8fa3; border: 1px solid rgba(244,63,94,.55); }
+.thumb .outlier-chip { position: absolute; bottom: 8px; left: 8px; background-color: rgba(5,8,14,.72); }
+/* 🔥 VPH(시간당 조회수) 배지 */
+.vph-badge {
+  font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 8px;
+  background: rgba(148,163,184,.12); color: var(--muted); border: 1px solid var(--border); white-space: nowrap;
+}
+.vph-badge.hot { background: rgba(251,146,60,.16); color: #ffb26b; border-color: rgba(251,146,60,.45); }
+
+/* 📊 바이럴 3축 점수 게이지 */
+.score-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 10px 0 4px; }
+@media (max-width: 700px) { .score-grid { grid-template-columns: 1fr; } }
+.score-gauge { background: rgba(148,163,184,.06); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.sg-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; font-weight: 600; }
+.sg-num { font-size: 20px; color: var(--muted); }
+.sg-num.mid { color: #7cb3ff; }
+.sg-num.high { color: #ff8fa3; }
+.sg-bar { height: 6px; border-radius: 4px; background: rgba(148,163,184,.15); margin: 7px 0; overflow: hidden; }
+.sg-fill { height: 100%; border-radius: 4px; background: #64748b; transition: width .5s; }
+.sg-fill.mid { background: linear-gradient(90deg, #3b82f6, #7cb3ff); }
+.sg-fill.high { background: linear-gradient(90deg, #a855f7, #f43f5e); }
+.sg-reason { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
 .card-body { padding: 10px 12px 12px; }
 .card-title {
   font-size: 13px; font-weight: 600; line-height: 1.4; height: 2.8em;

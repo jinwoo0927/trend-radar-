@@ -16,7 +16,7 @@ const USE_SUPABASE = !!(SUPABASE_URL && SUPABASE_KEY);
 const ROW_ID = 'trendradar';           // 단일 행에 전체 상태를 JSONB 로 저장
 const TABLE = 'app_state';
 
-let db = { videos: {}, snapshots: [], meta: { lastCollectedAt: null, mode: 'empty' } };
+let db = { videos: {}, snapshots: [], channels: {}, meta: { lastCollectedAt: null, mode: 'empty' } };
 
 export function storageMode() { return USE_SUPABASE ? 'supabase' : 'file'; }
 
@@ -102,6 +102,19 @@ export function upsertVideos(videos, collectedAt = new Date().toISOString()) {
   save();
 }
 
+// ── 채널 프로필 (아웃라이어 점수 기준선) ──
+// 저장은 요약만: 구독자·중앙값. 원본 영상 목록은 크기 문제로 저장하지 않는다.
+export function upsertChannel(key, profile) {
+  (db.channels ??= {})[key.toLowerCase()] = {
+    handle: profile.handle, name: profile.name, subscribers: profile.subscribers,
+    medianViews: profile.medianViews, medianShorts: profile.medianShorts,
+    videoCount: (profile.videos || []).length, fetchedAt: profile.fetchedAt,
+  };
+  save();
+}
+export function getChannel(key) { return (db.channels || {})[String(key || '').toLowerCase()] || null; }
+export function getChannels() { return db.channels || {}; }
+
 export function setMode(mode) { db.meta.mode = mode; save(); }
 export function getMeta() { return db.meta; }
 
@@ -125,6 +138,6 @@ export function removeWhere(pred) {
 }
 
 export function clear() {
-  db = { videos: {}, snapshots: [], meta: { lastCollectedAt: null, mode: db.meta.mode } };
+  db = { videos: {}, snapshots: [], channels: db.channels || {}, meta: { lastCollectedAt: null, mode: db.meta.mode } };
   save();
 }

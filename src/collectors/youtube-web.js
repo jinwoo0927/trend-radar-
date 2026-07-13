@@ -2,16 +2,16 @@
 // 페이지에 내장된 ytInitialData JSON에서 영상 목록을 추출하고,
 // 상위 영상은 시청 페이지를 추가 조회해 좋아요·댓글 수를 보강한다(베스트 에포트).
 
-const HEADERS = {
+export const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
   'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.5',
 };
 
-async function fetchText(url, timeoutMs = 12000) {
+export async function fetchText(url, timeoutMs = 12000, extraHeaders = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { headers: HEADERS, signal: ctrl.signal });
+    const res = await fetch(url, { headers: { ...HEADERS, ...extraHeaders }, signal: ctrl.signal });
     if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
     return await res.text();
   } finally {
@@ -32,7 +32,7 @@ export function parseCount(text) {
 }
 
 // HTML 속 "marker = {...}" 형태의 JSON을 중괄호 짝 맞추기로 추출
-function extractJson(html, marker) {
+export function extractJson(html, marker) {
   const i = html.indexOf(marker);
   if (i < 0) return null;
   const start = html.indexOf('{', i);
@@ -128,11 +128,16 @@ function mapVideoRenderer(vr, categoryHint) {
   const id = vr.videoId;
   const title = vr.title?.runs?.map(r => r.text).join('') || vr.title?.simpleText || '';
   if (!id || !title) return null;
+  // 채널 핸들/ID — 아웃라이어 점수(채널 평균 대비 배수) 계산에 사용
+  const owner = vr.ownerText?.runs?.[0] || vr.shortBylineText?.runs?.[0] || {};
+  const browse = owner.navigationEndpoint?.browseEndpoint || {};
   return {
     id,
     platform: 'youtube',
     title,
-    channel: vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || '',
+    channel: owner.text || '',
+    channelHandle: (browse.canonicalBaseUrl || '').replace(/^\//, ''), // "@handle"
+    channelId: browse.browseId || '',                                   // "UC..."
     description: (vr.detailedMetadataSnippets?.[0]?.snippetText?.runs || vr.descriptionSnippet?.runs || [])
       .map(r => r.text).join('').slice(0, 300),
     hashtags: [],
