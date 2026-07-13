@@ -115,6 +115,41 @@ export function upsertChannel(key, profile) {
 export function getChannel(key) { return (db.channels || {})[String(key || '').toLowerCase()] || null; }
 export function getChannels() { return db.channels || {}; }
 
+// ── 한국어 훅 DB (아웃라이어 영상의 첫 문장 자동 축적) ──
+export function addHooks(hooks) {
+  db.hooks ??= [];
+  const seen = new Set(db.hooks.map(h => h.text));
+  for (const h of hooks) {
+    if (!h.text || seen.has(h.text)) continue;
+    seen.add(h.text);
+    db.hooks.push(h);
+  }
+  db.hooks = db.hooks.slice(-500); // 최근 500개 유지
+  save();
+}
+export function getHooks() { return db.hooks || []; }
+export function hasHookFor(videoKey) { return (db.hooks || []).some(h => h.videoKey === videoKey); }
+
+// ── 벤치마킹 채널 워치리스트 ──
+export function getWatchlist() { return db.watchlist || []; }
+export function addWatch(handle, info = {}) {
+  db.watchlist ??= [];
+  const key = handle.toLowerCase();
+  if (!db.watchlist.some(w => w.handle.toLowerCase() === key)) {
+    db.watchlist.push({ handle, name: info.name || handle, addedAt: new Date().toISOString(), knownIds: info.knownIds || [] });
+  }
+  save();
+}
+export function removeWatch(handle) {
+  db.watchlist = (db.watchlist || []).filter(w => w.handle.toLowerCase() !== handle.toLowerCase());
+  save();
+}
+export function updateWatch(handle, patch) {
+  const w = (db.watchlist || []).find(x => x.handle.toLowerCase() === handle.toLowerCase());
+  if (w) Object.assign(w, patch);
+  save();
+}
+
 export function setMode(mode) { db.meta.mode = mode; save(); }
 export function getMeta() { return db.meta; }
 
@@ -138,6 +173,10 @@ export function removeWhere(pred) {
 }
 
 export function clear() {
-  db = { videos: {}, snapshots: [], channels: db.channels || {}, meta: { lastCollectedAt: null, mode: db.meta.mode } };
+  db = {
+    videos: {}, snapshots: [], channels: db.channels || {},
+    hooks: db.hooks || [], watchlist: db.watchlist || [],
+    meta: { lastCollectedAt: null, mode: db.meta.mode },
+  };
   save();
 }

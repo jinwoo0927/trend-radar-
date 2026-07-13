@@ -735,4 +735,305 @@ document.getElementById('register-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('register-btn').click();
 });
 
+// ── 📡 오늘의 소재 (구글 트렌드 KR) ──
+async function renderTrends() {
+  const box = document.getElementById('trend-chips');
+  try {
+    const d = await fetchJSON('/api/trends');
+    if (!d.items?.length) { box.innerHTML = '<span class="muted">급상승 검색어를 불러오지 못했습니다.</span>'; return; }
+    box.innerHTML = d.items.map(t =>
+      `<button class="kw trend-chip" data-kw="${esc(t.keyword)}" title="${esc(t.news[0]?.title || '')}">
+        ${esc(t.keyword)} <b class="tr-traffic">${esc(t.traffic)}</b></button>`).join('');
+  } catch { box.innerHTML = '<span class="muted">급상승 검색어를 불러오지 못했습니다.</span>'; }
+}
+document.getElementById('trend-chips').addEventListener('click', async e => {
+  const chip = e.target.closest('.trend-chip');
+  if (!chip) return;
+  const kw = chip.dataset.kw;
+  const detail = document.getElementById('trend-detail');
+  detail.classList.remove('hidden');
+  detail.innerHTML = `<div class="ai-note">"${esc(kw)}" 로 지금 나온 인기 영상을 찾는 중...</div>`;
+  try {
+    const d = await fetchJSON('/api/trends/videos?q=' + encodeURIComponent(kw));
+    detail.innerHTML = `
+      <div class="td-head"><b>"${esc(kw)}"</b> — 이번 주 인기 영상 ${d.videos.length}개
+        <button class="btn-ghost td-idea" data-kw="${esc(kw)}">✍️ 이 소재로 대본 만들기</button></div>
+      <div class="td-videos">${d.videos.map(v => `
+        <a class="td-video" href="${esc(v.url)}" target="_blank" rel="noopener">
+          <img src="/api/thumb?url=${encodeURIComponent(v.thumbnail)}" alt="" loading="eager">
+          <div><div class="td-title">${esc(v.title)}</div>
+          <div class="muted">${esc(v.channel)} · 조회 ${fmt(v.views)}</div></div>
+        </a>`).join('')}</div>`;
+  } catch (err) { detail.innerHTML = `<div class="ai-note">검색 실패: ${esc(err.message)}</div>`; }
+});
+// "이 소재로 대본 만들기" → 스튜디오로 스크롤 + 주제 채우기
+document.getElementById('trend-detail').addEventListener('click', e => {
+  const btn = e.target.closest('.td-idea');
+  if (!btn) return;
+  document.getElementById('studio-topic').value = btn.dataset.kw + ' — 지금 급상승 중인 소재';
+  document.getElementById('studio-section').scrollIntoView({ behavior: 'smooth' });
+});
+
+// ── 🔎 키워드 확장 탐색기 ──
+async function runKwExplore() {
+  const q = document.getElementById('kw-input').value.trim();
+  const out = document.getElementById('kw-result');
+  if (!q) return;
+  out.innerHTML = '<div class="ai-note">시청자 검색 수요를 확장하는 중...</div>';
+  try {
+    const d = await fetchJSON('/api/keywords?q=' + encodeURIComponent(q));
+    if (!d.suggestions.length) { out.innerHTML = '<div class="ai-note">자동완성 결과가 없습니다.</div>'; return; }
+    out.innerHTML = `
+      <div class="kw-tree">
+        ${d.suggestions.map(s => `<button class="kw kw-sug" data-kw="${esc(s)}">${esc(s)}</button>`).join('')}
+      </div>
+      ${Object.entries(d.children).map(([k, subs]) => subs.length ? `
+        <div class="kw-branch"><span class="muted">└ ${esc(k)}:</span>
+          ${subs.slice(0, 6).map(s => `<button class="kw kw-sug" data-kw="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : '').join('')}
+      <div class="muted" style="margin-top:6px;">키워드를 누르면 그 키워드의 인기 영상을 확인합니다 — 검색 수요는 많은데 터진 영상이 적으면 콘텐츠 갭(기회)입니다.</div>`;
+  } catch (err) { out.innerHTML = `<div class="ai-note">확장 실패: ${esc(err.message)}</div>`; }
+}
+document.getElementById('kw-btn').addEventListener('click', runKwExplore);
+document.getElementById('kw-input').addEventListener('keydown', e => { if (e.key === 'Enter') runKwExplore(); });
+document.getElementById('kw-result').addEventListener('click', async e => {
+  const btn = e.target.closest('.kw-sug');
+  if (!btn) return;
+  const detail = document.getElementById('trend-detail');
+  detail.classList.remove('hidden');
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  detail.innerHTML = `<div class="ai-note">"${esc(btn.dataset.kw)}" 인기 영상을 찾는 중...</div>`;
+  try {
+    const d = await fetchJSON('/api/trends/videos?q=' + encodeURIComponent(btn.dataset.kw));
+    detail.innerHTML = `
+      <div class="td-head"><b>"${esc(btn.dataset.kw)}"</b> — 이번 주 인기 영상 ${d.videos.length}개
+        <button class="btn-ghost td-idea" data-kw="${esc(btn.dataset.kw)}">✍️ 이 소재로 대본 만들기</button></div>
+      <div class="td-videos">${d.videos.map(v => `
+        <a class="td-video" href="${esc(v.url)}" target="_blank" rel="noopener">
+          <img src="/api/thumb?url=${encodeURIComponent(v.thumbnail)}" alt="" loading="eager">
+          <div><div class="td-title">${esc(v.title)}</div>
+          <div class="muted">${esc(v.channel)} · 조회 ${fmt(v.views)}</div></div>
+        </a>`).join('')}</div>`;
+  } catch (err) { detail.innerHTML = `<div class="ai-note">검색 실패: ${esc(err.message)}</div>`; }
+});
+
+// ── 👁 벤치마킹 채널 워치리스트 ──
+async function renderWatchlist() {
+  try {
+    const d = await fetchJSON('/api/watch');
+    const box = document.getElementById('watch-list');
+    box.innerHTML = d.watchlist.length
+      ? d.watchlist.map(w => `<span class="watch-chip">${esc(w.name)}
+          <button class="watch-del" data-handle="${esc(w.handle)}" title="추적 해제">✕</button></span>`).join('')
+      : '<span class="muted">추적 중인 채널이 없습니다. 벤치마킹하고 싶은 채널을 등록해 보세요 (최대 10개).</span>';
+    // 떡상 감지 목록 (source=watchlist 영상)
+    const spikes = lastVideos.filter(v => v.source === 'watchlist');
+    document.getElementById('spike-list').innerHTML = spikes.length
+      ? `<h4 style="margin:12px 0 6px;">🚨 떡상 감지</h4>` + spikes.slice(0, 6).map(v =>
+        `<div class="spike-row"><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title)}</a>
+         <span class="muted">${esc(v.channel)} · 조회 ${fmt(v.views)}</span>${v.outlier ? outlierBadge(v) : ''}</div>`).join('')
+      : '';
+  } catch { /* 무시 */ }
+}
+document.getElementById('watch-btn').addEventListener('click', async () => {
+  const input = document.getElementById('watch-input');
+  const handle = input.value.trim();
+  if (!handle) return;
+  const btn = document.getElementById('watch-btn');
+  btn.disabled = true; btn.textContent = '등록 중...';
+  try {
+    const r = await fetchJSON('/api/watch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ handle }) });
+    input.value = '';
+    alert(`"${r.name}" 추적 시작 — 구독자 ${fmt(r.subscribers)} · 최근 영상 중앙값 ${fmt(r.medianViews)}회.\n다음 수집부터 이 채널의 떡상(중앙값 3배↑ 신작)을 감지합니다.`);
+    renderWatchlist();
+  } catch (err) { alert(err.message); }
+  finally { btn.disabled = false; btn.textContent = '＋ 추적'; }
+});
+document.getElementById('watch-list').addEventListener('click', async e => {
+  const del = e.target.closest('.watch-del');
+  if (!del) return;
+  await fetchJSON('/api/watch?handle=' + encodeURIComponent(del.dataset.handle), { method: 'DELETE' });
+  renderWatchlist();
+});
+
+// ── 🪝 훅 라이브러리 ──
+let hookArchetype = 'all';
+async function renderHooks() {
+  try {
+    const d = await fetchJSON('/api/hooks?archetype=' + encodeURIComponent(hookArchetype));
+    document.getElementById('hook-filters').innerHTML =
+      [`<button class="kw ${hookArchetype === 'all' ? 'active' : ''}" data-arch="all">전체 ${d.total}</button>`,
+        ...d.archetypes.map(a => `<button class="kw ${hookArchetype === a ? 'active' : ''}" data-arch="${esc(a)}">${esc(a)}</button>`)].join('');
+    document.getElementById('hook-list').innerHTML = d.hooks.length
+      ? d.hooks.map(h => `<div class="hook-row">
+          <div class="hook-text">“${esc(h.text)}”
+            <button class="btn-ghost hook-copy" data-text="${esc(h.text)}" title="복사">📋</button></div>
+          <div class="muted">${h.archetype ? `<span class="hk-type">${esc(h.archetype)}</span> · ` : ''}${esc(h.title || '')} · ${h.outlierMult ? `💥 ${h.outlierMult}x` : `♥ ${fmt(h.likes || 0)}`}</div>
+        </div>`).join('')
+      : '<div class="muted">아직 축적된 훅이 없습니다. 수집이 반복되면 터진 영상(채널 평균 3배↑)의 오프닝이 자동으로 쌓입니다.</div>';
+  } catch { /* 무시 */ }
+}
+document.getElementById('hook-filters').addEventListener('click', e => {
+  const b = e.target.closest('[data-arch]');
+  if (!b) return;
+  hookArchetype = b.dataset.arch;
+  renderHooks();
+});
+document.getElementById('hook-list').addEventListener('click', e => {
+  const c = e.target.closest('.hook-copy');
+  if (!c) return;
+  navigator.clipboard?.writeText(c.dataset.text);
+  c.textContent = '✅'; setTimeout(() => { c.textContent = '📋'; }, 1200);
+});
+
+// ── ✏️ 제목·훅 생성기 ──
+document.getElementById('tg-btn').addEventListener('click', async () => {
+  const topic = document.getElementById('tg-topic').value.trim();
+  const platform = document.getElementById('tg-platform').value;
+  const out = document.getElementById('tg-result');
+  if (!topic) { out.innerHTML = '<div class="ai-note">주제를 입력해 주세요.</div>'; return; }
+  const btn = document.getElementById('tg-btn');
+  btn.disabled = true; btn.textContent = '✨ 생성 중...';
+  out.innerHTML = '<div class="ai-note">터진 제목·검증된 훅 패턴을 적용해 생성 중...</div>';
+  try {
+    const r = await fetchJSON('/api/titlegen', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, platform }),
+    });
+    if (r.enabled === false) { out.innerHTML = `<div class="ai-note">🔑 ${esc(r.message)}</div>`; return; }
+    if (r.error) { out.innerHTML = `<div class="ai-note">오류: ${esc(r.error)}</div>`; return; }
+    out.innerHTML = r.variants.map((v, i) => `
+      <div class="tg-card ${i === r.pick ? 'tg-pick' : ''}">
+        ${i === r.pick ? '<span class="tg-best">🏆 AI 추천 1픽</span>' : ''}
+        <span class="hk-type">${esc(v.archetype)}</span>
+        <div class="tg-title">${esc(v.title)}
+          <button class="btn-ghost hook-copy" data-text="${esc(v.title)}">📋</button></div>
+        <div class="tg-hook">🎬 훅: ${esc(v.hook)}</div>
+        <div class="muted">${esc(v.why)}</div>
+      </div>`).join('') +
+      `<div class="ai-note" style="margin-top:8px;">🏆 판정: ${esc(r.verdict)}</div>`;
+  } catch (err) { out.innerHTML = `<div class="ai-note">요청 실패: ${esc(err.message)}</div>`; }
+  finally { btn.disabled = false; btn.textContent = '✨ 생성'; }
+});
+document.getElementById('tg-result').addEventListener('click', e => {
+  const c = e.target.closest('.hook-copy');
+  if (!c) return;
+  navigator.clipboard?.writeText(c.dataset.text);
+  c.textContent = '✅'; setTimeout(() => { c.textContent = '📋'; }, 1200);
+});
+
+// ── 📊 내 채널 진단 ──
+document.getElementById('mych-btn').addEventListener('click', async () => {
+  const q = document.getElementById('mych-input').value.trim();
+  const out = document.getElementById('mych-result');
+  if (!q) return;
+  const btn = document.getElementById('mych-btn');
+  btn.disabled = true; btn.textContent = '분석 중...';
+  out.innerHTML = '<div class="ai-note">채널 데이터를 수집하는 중... (최근 영상 조회수 기준선 계산)</div>';
+  try {
+    const d = await fetchJSON('/api/channel?q=' + encodeURIComponent(q));
+    const renderList = (list, label) => list.length ? `
+      <h4>${label} <span class="h-sub">중앙값 대비 배수 — 2배↑는 내 채널에서 "터진" 것</span></h4>
+      <div class="mych-videos">${list.slice(0, 12).map(v => `
+        <a class="td-video" href="${esc(v.url)}" target="_blank" rel="noopener">
+          <img src="/api/thumb?url=${encodeURIComponent(v.thumbnail)}" alt="">
+          <div><div class="td-title">${esc(v.title)}</div>
+          <div class="muted">조회 ${fmt(v.views)} ${v.outlier && v.outlier.mult >= 2 ? `<span class="outlier-chip ${v.outlier.mult >= 10 ? 'ol-mega' : v.outlier.mult >= 5 ? 'ol-high' : 'ol-mid'}">💥 ${v.outlier.mult}x</span>` : (v.outlier ? `<span class="muted">${v.outlier.mult}x</span>` : '')}</div></div>
+        </a>`).join('')}</div>` : '';
+    const hits = [...d.videos, ...d.shorts].filter(v => v.outlier && v.outlier.mult >= 2);
+    out.innerHTML = `
+      <div class="mych-head">
+        <b>${esc(d.name)}</b> · 구독자 ${fmt(d.subscribers)}명
+        · 롱폼 중앙값 <b>${fmt(d.medianViews)}회</b> · 쇼츠 중앙값 <b>${fmt(d.medianShorts)}회</b>
+      </div>
+      <div class="ai-note">💡 진단: 최근 영상 중 <b>${hits.length}개</b>가 채널 평균(중앙값)의 2배를 넘었습니다.
+        ${hits.length ? `가장 크게 터진 것은 「${esc(hits.sort((a, b) => b.outlier.mult - a.outlier.mult)[0].title.slice(0, 30))}」 (${hits[0].outlier.mult}x) — 이 소재·형식을 반복·변형하는 것이 가장 확률 높은 다음 수입니다.` : '아직 평균을 뚫은 영상이 없습니다 — 위 "오늘의 소재"와 훅 라이브러리로 새로운 시도를 해보세요.'}</div>
+      ${renderList(d.videos, '최근 롱폼')}
+      ${renderList(d.shorts, '최근 쇼츠')}`;
+  } catch (err) { out.innerHTML = `<div class="ai-note">진단 실패: ${esc(err.message)}</div>`; }
+  finally { btn.disabled = false; btn.textContent = '진단'; }
+});
+document.getElementById('mych-input').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('mych-btn').click(); });
+
+// ── 📬 주간 브리핑 ──
+let briefText = '';
+document.getElementById('brief-btn').addEventListener('click', async () => {
+  const niche = document.getElementById('brief-niche').value.trim();
+  const out = document.getElementById('brief-result');
+  const btn = document.getElementById('brief-btn');
+  btn.disabled = true; btn.textContent = '생성 중...';
+  out.innerHTML = '<div class="ai-note">이번 주 데이터를 모으는 중...</div>';
+  try {
+    const d = await fetchJSON('/api/briefing?niche=' + encodeURIComponent(niche));
+    out.innerHTML = `
+      <div class="brief-head">📬 <b>${esc(d.niche)}</b> 주간 브리핑 <span class="muted">${d.period.from} ~ ${d.period.to}</span></div>
+      ${d.topOutliers.length ? `<h4>💥 이번 주 터진 것 TOP ${d.topOutliers.length}</h4>
+        <ol class="brief-list">${d.topOutliers.map(v => `<li><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title)}</a>
+          <span class="muted">${esc(v.channel)} · ${fmt(v.views)}회 · 채널 평균의 <b>${v.mult}배</b></span></li>`).join('')}</ol>` : '<div class="muted">아직 아웃라이어 데이터가 부족합니다 — 수집이 몇 차례 반복되면 채워집니다.</div>'}
+      ${d.accelerating.length ? `<h4>🔥 지금 가속 중</h4>
+        <ul class="brief-list">${d.accelerating.map(v => `<li><a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title)}</a> <span class="muted">${fmt(v.vph)}/h</span></li>`).join('')}</ul>` : ''}
+      ${d.googleTrends.length ? `<h4>📡 실시간 급상승 검색어</h4>
+        <div class="keywords">${d.googleTrends.map(t => `<span class="kw">${esc(t.keyword)} <b class="tr-traffic">${esc(t.traffic)}</b></span>`).join('')}</div>` : ''}
+      ${d.freshHooks.length ? `<h4>🪝 새로 수집된 훅</h4>
+        <ul class="brief-list">${d.freshHooks.map(h => `<li>“${esc(h.text.slice(0, 70))}” <span class="muted">${esc(h.archetype || '')}</span></li>`).join('')}</ul>` : ''}
+      ${d.ideas.length ? `<h4>💡 이번 주 추천 아이디어</h4>
+        <ul class="brief-list">${d.ideas.map(i => `<li><b>${esc(i.title)}</b> <span class="muted">${esc(i.format)} · ${i.metricLabel} ${i.metricPct.toFixed(1)}%</span></li>`).join('')}</ul>` : ''}`;
+    // 공유용 텍스트
+    briefText = `📬 ${d.niche} 주간 트렌드 브리핑 (${d.period.from}~${d.period.to})\n\n` +
+      (d.topOutliers.length ? `💥 이번 주 터진 것:\n${d.topOutliers.slice(0, 5).map((v, i) => `${i + 1}. ${v.title} — ${v.channel}, 채널 평균의 ${v.mult}배 (${v.url})`).join('\n')}\n\n` : '') +
+      (d.googleTrends.length ? `📡 급상승 검색어: ${d.googleTrends.map(t => t.keyword).join(', ')}\n\n` : '') +
+      (d.ideas.length ? `💡 추천 아이디어:\n${d.ideas.map(i => `- ${i.title}`).join('\n')}\n\n` : '') +
+      `— TrendRadar (${location.origin})`;
+    document.getElementById('brief-copy').classList.remove('hidden');
+  } catch (err) { out.innerHTML = `<div class="ai-note">생성 실패: ${esc(err.message)}</div>`; }
+  finally { btn.disabled = false; btn.textContent = '브리핑 생성'; }
+});
+document.getElementById('brief-copy').addEventListener('click', e => {
+  navigator.clipboard?.writeText(briefText);
+  e.target.textContent = '✅ 복사됨!'; setTimeout(() => { e.target.textContent = '📋 텍스트로 복사 (공유용)'; }, 1500);
+});
+
+// ── 👋 온보딩 (첫 방문) ──
+(function onboard() {
+  const saved = localStorage.getItem('tr-onboard');
+  if (saved) {
+    try {
+      const { niche } = JSON.parse(saved);
+      if (niche) {
+        const ideaNiche = document.getElementById('niche-input');
+        if (ideaNiche) { ideaNiche.value = niche; state.ideaNiche = niche; }
+        document.getElementById('kw-input').value = niche;
+        document.getElementById('brief-niche').value = niche;
+      }
+    } catch { /* 무시 */ }
+    return;
+  }
+  const modal = document.getElementById('onboard');
+  modal.classList.remove('hidden');
+  let purpose = 'creator';
+  document.getElementById('ob-purpose').addEventListener('click', e => {
+    const b = e.target.closest('button[data-p]');
+    if (!b) return;
+    purpose = b.dataset.p;
+    document.querySelectorAll('#ob-purpose button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  });
+  const done = save => {
+    const niche = save ? document.getElementById('ob-niche').value.trim() : '';
+    localStorage.setItem('tr-onboard', JSON.stringify({ purpose, niche, at: Date.now() }));
+    modal.classList.add('hidden');
+    if (niche) {
+      const ideaNiche = document.getElementById('niche-input');
+      if (ideaNiche) { ideaNiche.value = niche; state.ideaNiche = niche; }
+      document.getElementById('kw-input').value = niche;
+      document.getElementById('brief-niche').value = niche;
+      document.getElementById('topics-section').scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+  document.getElementById('ob-start').addEventListener('click', () => done(true));
+  document.getElementById('ob-skip').addEventListener('click', () => done(false));
+})();
+
+renderTrends();
+renderHooks();
+setTimeout(renderWatchlist, 800); // lastVideos 로드 후
 refresh().catch(err => console.error(err));

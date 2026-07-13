@@ -157,6 +157,24 @@ function mapVideoRenderer(vr, categoryHint) {
   };
 }
 
+// 임의 키워드 공개 검색 — "오늘의 소재"·키워드 탐색기에서 사용
+export async function searchYoutube(q, { limit = 6, sp = SP_WEEK_TOP_VIEWS, minViews = 0 } = {}) {
+  const url = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q)
+    + (sp ? '&sp=' + encodeURIComponent(sp) : '');
+  const data = extractJson(await fetchText(url), 'ytInitialData');
+  if (!data) return [];
+  const out = [];
+  const seen = new Set();
+  for (const vr of findVideoRenderers(data)) {
+    const v = mapVideoRenderer(vr, '');
+    if (!v || seen.has(v.id) || v.views < minViews) continue;
+    seen.add(v.id);
+    out.push(v);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 export async function collectYoutubeWeb({ perQuery = 5, enrichTop = 24 } = {}) {
   const seen = new Set();
   const videos = [];
