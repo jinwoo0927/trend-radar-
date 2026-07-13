@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrendRadar — SNS 인기 영상 트렌드 분석</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">📡</span>
+      <div>
+        <h1>TrendRadar</h1>
+        <p class="tagline">유튜브 · 틱톡 · 인스타그램 · 스레드 인기 영상 트렌드 분석</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="mode-badge" class="badge"></span>
+      <div class="collect-info">
+        <span id="last-collected" class="muted"></span>
+        <span id="next-collect" class="muted"></span>
+      </div>
+      <button id="collect-btn" class="btn-primary">지금 수집</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 히어로 -->
+    <section class="hero">
+      <div class="hero-text">
+        <div class="hero-eyebrow">유튜브 · 틱톡 · 인스타그램 · 스레드 트렌드 + AI</div>
+        <h1 class="hero-title">조회수 터진 영상,<br><span class="grad">왜 떴는지</span> 알려드립니다</h1>
+        <p class="hero-sub">지금 뜨는 콘텐츠를 AI가 <b>대본·구조·성공 요인</b>까지 뜯어 분석하고,
+          당신의 주제로 <b>바이럴 대본과 글</b>을 대신 써드립니다.<br>
+          크리에이터·마케터·1인 사업자를 위한 <b>콘텐츠 무기고</b>.</p>
+        <div class="hero-cta">
+          <button class="btn-primary hero-btn" data-scroll="studio-section">✍️ 내 콘텐츠 만들기</button>
+          <button class="btn-ghost hero-btn" data-scroll="ideas-section">💡 지금 뜨는 아이디어 보기</button>
+        </div>
+        <div class="hero-props">
+          <div class="prop"><span class="prop-ic">🔬</span><div><b>인기 콘텐츠 해부</b><small>훅·구조·왜 터졌나</small></div></div>
+          <div class="prop"><span class="prop-ic">✍️</span><div><b>내 대본·글 생성</b><small>주제만 적으면 완성</small></div></div>
+          <div class="prop"><span class="prop-ic">📈</span><div><b>실시간 트렌드</b><small>실데이터 아이디어</small></div></div>
+        </div>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <svg viewBox="0 0 400 360" xmlns="http://www.w3.org/2000/svg" role="img">
+          <defs>
+            <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#8b5cf6"/>
+            </linearGradient>
+            <linearGradient id="gB" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#5b8cff"/>
+            </linearGradient>
+            <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#5b8cff" flood-opacity="0.25"/>
+            </filter>
+          </defs>
+          <!-- 영상 카드 -->
+          <rect x="26" y="40" width="180" height="120" rx="16" fill="url(#gA)" filter="url(#sh)"/>
+          <circle cx="116" cy="100" r="26" fill="#fff" opacity="0.95"/>
+          <path d="M108 88 L108 112 L130 100 Z" fill="#5b8cff"/>
+          <rect x="46" y="176" width="120" height="9" rx="4.5" fill="#2b3550"/>
+          <rect x="46" y="192" width="80" height="9" rx="4.5" fill="#2b3550"/>
+          <!-- 화살표(변환) -->
+          <path d="M214 118 q40 0 40 40" fill="none" stroke="url(#gB)" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 10"/>
+          <path d="M250 150 l6 12 l-14 -2 Z" fill="#34d399"/>
+          <!-- 분석/대본 패널 -->
+          <rect x="210" y="150" width="168" height="176" rx="16" fill="#161b26" stroke="#262f45"/>
+          <rect x="228" y="170" width="70" height="10" rx="5" fill="url(#gB)"/>
+          <rect x="228" y="192" width="132" height="7" rx="3.5" fill="#2b3550"/>
+          <rect x="228" y="206" width="120" height="7" rx="3.5" fill="#2b3550"/>
+          <rect x="228" y="220" width="128" height="7" rx="3.5" fill="#2b3550"/>
+          <rect x="228" y="242" width="54" height="10" rx="5" fill="#8b5cf6"/>
+          <rect x="228" y="264" width="132" height="7" rx="3.5" fill="#2b3550"/>
+          <rect x="228" y="278" width="110" height="7" rx="3.5" fill="#2b3550"/>
+          <rect x="228" y="300" width="90" height="14" rx="7" fill="url(#gA)"/>
+          <!-- 지표 스파크 -->
+          <g transform="translate(40,236)">
+            <rect x="0" y="40" width="12" height="24" rx="3" fill="#34d399" opacity="0.85"/>
+            <rect x="20" y="24" width="12" height="40" rx="3" fill="#34d399" opacity="0.9"/>
+            <rect x="40" y="8" width="12" height="56" rx="3" fill="#34d399"/>
+            <path d="M6 44 L26 28 L46 12" fill="none" stroke="#e8ecf4" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="46" cy="12" r="4" fill="#fff"/>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- KPI -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <p class="kpi-label">수집 영상</p><p class="kpi-value" id="kpi-count">–</p>
+        <p class="kpi-sub" id="kpi-count-sub"></p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label">총 조회수</p><p class="kpi-value" id="kpi-views">–</p>
+        <p class="kpi-sub" id="kpi-views-sub"></p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label">평균 인게이지먼트율</p><p class="kpi-value" id="kpi-eng">–</p>
+        <p class="kpi-sub" id="kpi-eng-sub"></p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label">급상승 영상</p><p class="kpi-value" id="kpi-rising">–</p>
+        <p class="kpi-sub" id="kpi-rising-sub"></p>
+      </div>
+    </section>
+
+    <!-- 콘텐츠 아이디어 스튜디오 -->
+    <section class="panel idea-studio" id="ideas-section">
+      <div class="idea-head">
+        <h2>💡 콘텐츠 아이디어 <span class="h-sub">지금 공유·좋아요가 잘 되는 실제 영상에서 역산 — 모든 아이디어에 근거 영상 포함</span></h2>
+        <div class="idea-controls">
+          <div class="goal-toggle" id="goal-toggle">
+            <button data-goal="좋아요" class="active">❤️ 좋아요형</button>
+            <button data-goal="공유">🔁 공유형</button>
+          </div>
+          <input id="niche-input" type="search" placeholder="분야·키워드로 좁히기 (예: 뷰티, 먹방, 게임)" />
+          <button id="ai-idea-btn" class="btn-primary" title="ANTHROPIC_API_KEY 설정 시 Claude가 훅·제목·대본까지 생성">✨ AI로 더 받기</button>
+        </div>
+      </div>
+      <p class="muted" id="idea-basis"></p>
+      <div id="idea-formats" class="idea-formats"></div>
+      <div id="idea-cards" class="idea-cards"></div>
+      <div id="ai-ideas"></div>
+    </section>
+
+    <!-- 콘텐츠 스튜디오 (AI 생성/변환) -->
+    <section class="panel studio" id="studio-section">
+      <div class="idea-head">
+        <h2>✍️ 콘텐츠 스튜디오 <span class="h-sub">인기 콘텐츠 구조를 흡수해 내 대본·글을 만들거나, 내 초안을 바이럴하게 변환</span></h2>
+        <span id="ai-badge" class="badge"></span>
+      </div>
+      <div class="studio-controls">
+        <select id="studio-platform">
+          <option value="threads">스레드 (글)</option>
+          <option value="instagram">인스타그램 (글)</option>
+          <option value="youtube">유튜브 (대본)</option>
+          <option value="tiktok">틱톡 (대본)</option>
+        </select>
+        <div class="mode-toggle" id="studio-mode">
+          <button data-mode="create" class="active">🎬 새로 만들기</button>
+          <button data-mode="rewrite">🔁 내 글 변환</button>
+        </div>
+        <button id="studio-btn" class="btn-primary">✨ 생성</button>
+      </div>
+      <textarea id="studio-topic" rows="3" placeholder="주제나 간단한 내용을 적으세요 — 예: 자취생 냉장고 정리 꿀팁 / 첫 직장 3개월 후기 / 새 러닝화 리뷰"></textarea>
+      <textarea id="studio-draft" rows="4" style="display:none;" placeholder="내가 쓴 글/초안을 붙여넣으면, 지금 잘 되는 인기 콘텐츠 구조로 바이럴하게 다시 써줍니다."></textarea>
+      <p class="muted" id="studio-ref">참고 인기 콘텐츠는 선택한 플랫폼의 상위 인기작이 자동 사용됩니다.</p>
+      <div id="studio-result"></div>
+    </section>
+
+    <!-- 필터 -->
+    <section class="filters">
+      <div class="platform-tabs" id="platform-tabs">
+        <button data-platform="all" class="tab active">전체</button>
+        <button data-platform="youtube" class="tab yt">유튜브</button>
+        <button data-platform="tiktok" class="tab tt">틱톡</button>
+        <button data-platform="instagram" class="tab ig">인스타그램</button>
+        <button data-platform="threads" class="tab th">스레드</button>
+      </div>
+      <div class="filter-controls">
+        <input id="search-input" type="search" placeholder="🔎 제목·채널·해시태그 검색" />
+        <select id="category-filter"><option value="all">전체 분야</option></select>
+        <select id="sort-select">
+          <option value="views">조회수순</option>
+          <option value="likes">좋아요순</option>
+          <option value="comments">댓글순</option>
+          <option value="shares">공유순</option>
+          <option value="engagementRate">인게이지먼트율순</option>
+          <option value="risingScore">급상승순</option>
+          <option value="publishedAt">최신 게시순</option>
+        </select>
+        <select id="limit-select">
+          <option value="20">20개</option>
+          <option value="50" selected>50개</option>
+          <option value="100">100개</option>
+        </select>
+        <button id="csv-btn" class="btn-ghost" title="현재 필터·정렬 기준으로 CSV 다운로드">⬇ CSV</button>
+      </div>
+    </section>
+
+    <!-- URL 등록 -->
+    <section class="panel register-panel">
+      <h2>➕ 틱톡·인스타 영상 대량 등록 <span class="h-sub">한 줄에 하나씩 여러 개를 붙여넣고 한 번에 등록하세요</span></h2>
+      <div class="register-row">
+        <textarea id="register-input" rows="3" placeholder="영상 URL을 한 줄에 하나씩 붙여넣기 — 유튜브·틱톡·인스타그램·스레드&#10;https://www.tiktok.com/@user/video/...&#10;https://www.instagram.com/reel/..."></textarea>
+        <button id="register-btn" class="btn-primary">＋ 등록</button>
+      </div>
+      <p class="muted" id="register-msg">API 키 없이 URL만으로 실지표를 수집합니다 — 틱톡: 조회수·좋아요·댓글·공유·저장 전부 · 인스타: 좋아요·댓글·작성자·게시일 (조회수 미공개) · 스레드: 작성자·본문. 틱톡·인스타는 트렌딩 자동 수집이 불가하여(로그인 벽·봇 차단) URL 등록이 유일한 방법입니다 — 여러 개를 모아 한 번에 붙여넣으세요.</p>
+    </section>
+
+    <!-- 미리보기 카드 -->
+    <section class="panel">
+      <h2>🎬 인기 영상 미리보기 <span class="h-sub" id="preview-date"></span>
+        <span class="h-sub">· 카드를 누르면 사이트 안에서 바로 재생됩니다</span></h2>
+      <div id="cards" class="cards"></div>
+    </section>
+
+    <!-- 인사이트 -->
+    <section class="panel">
+      <h2>🔍 자동 트렌드 인사이트 <span class="h-sub" id="insight-date"></span></h2>
+      <ul id="insights" class="insights"></ul>
+    </section>
+
+    <!-- 차트 -->
+    <section class="chart-grid">
+      <div class="panel"><h2>분야별 조회수</h2><canvas id="chart-category"></canvas></div>
+      <div class="panel"><h2>플랫폼 점유율</h2><canvas id="chart-platform"></canvas></div>
+      <div class="panel"><h2>분야별 평균 인게이지먼트율</h2><canvas id="chart-engagement"></canvas></div>
+      <div class="panel"><h2>수집일별 전체 조회수 추이</h2><canvas id="chart-timeline"></canvas></div>
+      <div class="panel wide"><h2>급상승 TOP5 성장 곡선</h2><canvas id="chart-growth"></canvas></div>
+      <div class="panel wide"><h2>🔥 트렌드 키워드 <span class="h-sub">키워드를 누르면 해당 영상만 필터링됩니다</span></h2><div id="keywords" class="keywords"></div></div>
+    </section>
+
+    <!-- 랭킹 -->
+    <section class="panel">
+      <h2>영상 랭킹 <span class="h-sub" id="rank-count"></span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>제목</th><th>플랫폼</th><th>분야</th>
+              <th class="num">조회수</th><th class="num">좋아요</th><th class="num">댓글</th>
+              <th class="num">공유</th><th class="num">인게이지</th><th class="num">급상승</th>
+              <th>게시일</th><th>수집일시</th>
+            </tr>
+          </thead>
+          <tbody id="video-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 수집 이력 -->
+    <section class="panel">
+      <h2>📅 수집 이력 <span class="h-sub">최근 10회 · 자동(60분 간격)/수동/URL 등록 모두 기록</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>수집 일시</th><th class="num">수집 건수</th><th class="num">실데이터</th><th>유튜브</th><th>기타 플랫폼</th><th class="num">소요 시간</th></tr>
+          </thead>
+          <tbody id="log-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>유튜브: API 키 없이 공개 인기 검색에서 실데이터 자동 수집(60분 간격, 키 설정 시 공식 API) · 틱톡/인스타그램/스레드: 트렌딩 자동 수집은 불가하여 URL 등록으로 실지표 수집 · 기본은 100% 실데이터(데모는 DEMO_DATA=1일 때만).</p>
+  </footer>
+
+  <!-- 재생 모달 -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span id="modal-title"></span>
+        <button id="modal-close" title="닫기">✕</button>
+      </div>
+      <div id="modal-embed" class="modal-embed"></div>
+      <a id="modal-link" href="#" target="_blank" rel="noopener">원본에서 보기 ↗</a>
+    </div>
+  </div>
+
+  <!-- 콘텐츠 해부 모달 -->
+  <div id="analysis-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span id="analysis-title">🔬 콘텐츠 해부</span>
+        <button id="analysis-close" title="닫기">✕</button>
+      </div>
+      <div id="analysis-body" class="analysis-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
