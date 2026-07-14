@@ -288,22 +288,37 @@ app.post('/api/studio', async (req, res) => {
   if (mode === 'create' && !topic) return res.status(400).json({ error: '주제나 간단한 내용을 입력해 주세요.' });
   if (mode === 'rewrite' && !draft) return res.status(400).json({ error: '변환할 내 글/초안을 입력해 주세요.' });
 
-  // 참고 콘텐츠: 지정된 것 우선. 없으면 주제와 관련된 인기작을 우선 선택(관련 없으면 상위 인기작).
+  // 참고 콘텐츠: 지정된 것 우선. 없으면 "최근 7일 + 주제 관련" 인기작만 선택.
+  // 관련 참고작이 없으면 엉뚱한 대형 영상(주제 이탈 원인)을 쓰지 않고 정직하게 알린다.
   let refs = store.getVideos().filter(x => refKeys.includes(x.key));
+  let refNote = '';
   if (!refs.length) {
     const words = (topic + ' ' + draft).toLowerCase().split(/[\s,·]+/).filter(w => w.length >= 2);
-    const cand = withMetrics(store.getVideos().filter(x => x.platform === platform && x.views > 0));
+    const weekAgo = Date.now() - 7 * 86400e3;
+    let cand = withMetrics(store.getVideos().filter(x => x.platform === platform && x.views > 0
+      && new Date(x.updatedAt || 0).getTime() > weekAgo));
+    if (cand.length < 3) cand = withMetrics(store.getVideos().filter(x => x.platform === platform && x.views > 0));
     const relevance = v => {
-      const t = `${v.title} ${v.category} ${(v.hashtags || []).join(' ')}`.toLowerCase();
+      const t = `${v.title} ${v.category} ${v.channel || ''} ${(v.hashtags || []).join(' ')} ${(v.description || '').slice(0, 200)}`.toLowerCase();
       return words.reduce((n, w) => n + (t.includes(w) ? 1 : 0), 0);
     };
-    // 관련성 → 아웃라이어 배수(채널 평균 대비 몇 배 터졌나) → 인게이지먼트 순으로 참고작 선정
-    refs = cand
-      .map(v => ({ v, rel: relevance(v) }))
-      .sort((a, b) => (b.rel - a.rel) || ((b.v.outlier?.mult || 0) - (a.v.outlier?.mult || 0)) || (b.v.engagementRate - a.v.engagementRate))
-      .slice(0, 3).map(x => x.v);
+    const scored = cand.map(v => ({ v, rel: relevance(v) }))
+      .sort((a, b) => (b.rel - a.rel) || ((b.v.freshScore || 0) - (a.v.freshScore || 0)));
+    const related = scored.filter(x => x.rel > 0).slice(0, 3).map(x => x.v);
+    if (related.length) {
+      refs = related;
+    } else {
+      // 관련작 없음 → 신선도 상위를 "구조 참고 전용"으로만 사용
+      refs = scored.slice(0, 2).map(x => x.v);
+      refNote = '주제와 직접 관련된 인기작이 아직 수집되지 않아, 최신 인기작의 "구조·패턴"만 참고했습니다. 📡 오늘의 소재의 키워드 탐색기에서 주제를 검색해 관련 영상을 확인해 보세요.';
+    }
   }
-  const refData = await Promise.all(refs.map(r => analyzable(r, { withTranscript: true })));
+  // 관련 참고작이면 대본까지 전달, 무관(구조 참고 전용)이면 제목·지표만 —
+  // 무관한 대본 전문이 프롬프트에 들어가면 모델이 그 소재로 주제를 이탈한다(실측).
+  const refData = refNote
+    ? refs.map(r => ({ platform: PLATFORM_LABEL[r.platform] || r.platform, title: r.title,
+        views: r.views, likes: r.likes, note: '구조 참고 전용 — 이 소재를 쓰지 말 것' }))
+    : await Promise.all(refs.map(r => analyzable(r, { withTranscript: true })));
   const scriptMode = isScriptPlatform(platform);
   const outType = scriptMode ? '영상 대본' : '게시글';
 
@@ -329,10 +344,13 @@ app.post('/api/studio', async (req, res) => {
         ? `숏폼 기준으로 첫 3초 훅부터 마지막 CTA까지 실제로 촬영·낭독할 수 있는 대본을 쓰세요. 장면/자막 지시를 대괄호로 넣어도 됩니다.\n`
         : `스레드/인스타 글 형식으로, 스크롤을 멈추게 하는 첫 문장부터 저장·공유를 부르는 마무리까지 바로 올릴 수 있는 완성된 글을 쓰세요.\n`) +
       `참고 콘텐츠를 베끼지 말고 성공 "구조"만 적용하세요.\n` +
-      `[검증된 구조 템플릿]을 뼈대로 쓰고, [검증된 훅 예시]의 패턴(베끼지 말 것)을 참고해 첫 문장을 만드세요.\n\n` +
-      `[내 주제]\n${topic}\n\n[검증된 구조 템플릿]\n${TEMPLATE[platform]}\n\n` +
-      `[검증된 훅 예시 — 실제 터진 영상의 오프닝]\n${JSON.stringify(hookExamples)}\n\n` +
-      `[참고 인기 콘텐츠]\n${JSON.stringify(refData, null, 2)}`;
+      `[검증된 구조 템플릿]을 뼈대로 쓰고, [검증된 훅 예시]의 패턴(베끼지 말 것)을 참고해 첫 문장을 만드세요.\n` +
+      `⚠️ 절대 규칙: 결과물은 처음부터 끝까지 주제 "${topic}" 에 관한 내용이어야 합니다. 참고 콘텐츠·훅 예시의 소재(운동·음악·먹방·피부 등)를 결과물의 소재로 가져오는 것을 금지합니다 — 문장 구조와 심리 장치만 가져오세요.\n\n` +
+      `[검증된 구조 템플릿]\n${TEMPLATE[platform]}\n\n` +
+      `[검증된 훅 예시 — 실제 터진 영상의 오프닝. 소재가 아니라 문장 구조만 참고]\n${JSON.stringify(hookExamples)}\n\n` +
+      `[참고 인기 콘텐츠 — 구조만 참고]\n${JSON.stringify(refData, null, 2)}\n\n` +
+      `[내 주제 — 결과물은 반드시 이것에 관한 내용]\n"${topic}"\n\n` +
+      `다시 강조합니다: 지금부터 쓸 ${outType}의 소재는 오직 "${topic}" 입니다. 다른 소재가 섞이면 실패입니다.`;
     schema = {
       type: 'object', additionalProperties: false,
       properties: {
@@ -351,9 +369,13 @@ app.post('/api/studio', async (req, res) => {
       `당신은 한국 SNS 바이럴 카피 편집자입니다. 아래 [참고 인기 콘텐츠]는 지금 ${PLATFORM_LABEL[platform]}에서 잘 되는 콘텐츠입니다.\n` +
       `제가 쓴 [내 초안]을, 참고작의 훅·구조·심리 자극을 적용해 ${PLATFORM_LABEL[platform]}에서 좋아요·공유가 잘 되도록 다시 써 주세요.\n` +
       `원래 메시지·사실은 유지하되 표현·구조·훅을 바이럴하게 바꾸고, 무엇을 왜 바꿨는지 알려주세요.\n` +
-      `[검증된 구조 템플릿]과 [검증된 훅 예시]의 패턴을 적용하세요.\n\n` +
-      `[내 초안]\n${draft}\n\n[검증된 구조 템플릿]\n${TEMPLATE[platform]}\n\n` +
-      `[검증된 훅 예시]\n${JSON.stringify(hookExamples)}\n\n[참고 인기 콘텐츠]\n${JSON.stringify(refData, null, 2)}`;
+      `[검증된 구조 템플릿]과 [검증된 훅 예시]의 패턴을 적용하세요.\n` +
+      `⚠️ 절대 규칙: 결과물은 [내 초안]의 주제·내용·사실을 유지해야 합니다. 참고 콘텐츠·훅 예시의 소재를 결과물에 섞는 것을 금지합니다 — 구조와 심리 장치만 가져오세요.\n\n` +
+      `[검증된 구조 템플릿]\n${TEMPLATE[platform]}\n\n` +
+      `[검증된 훅 예시 — 문장 구조만 참고]\n${JSON.stringify(hookExamples)}\n\n` +
+      `[참고 인기 콘텐츠 — 구조만 참고]\n${JSON.stringify(refData, null, 2)}\n\n` +
+      `[내 초안 — 이 내용을 바이럴하게 다시 쓰기]\n${draft}\n\n` +
+      `다시 강조합니다: 결과물은 위 [내 초안]과 같은 주제여야 하며, 참고 자료의 소재가 섞이면 실패입니다.`;
     schema = {
       type: 'object', additionalProperties: false,
       properties: {
@@ -367,11 +389,25 @@ app.post('/api/studio', async (req, res) => {
     };
   }
 
-  const out = await callClaude(prompt, schema, { maxTokens: 3200, effort: 'medium' });
+  let out = await callClaude(prompt, schema, { maxTokens: 3200, effort: 'medium' });
   if (!out.enabled) return res.json({ enabled: false, message: out.message });
   if (out.error) return res.status(502).json({ enabled: true, error: out.error });
+
+  // 주제 이탈 검증: 생성물에 주제 단어가 하나도 없으면 교정 지시를 붙여 1회 재시도
+  if (mode === 'create' && out.data) {
+    const topicWords = topic.toLowerCase().split(/[\s,·/]+/).filter(w => w.length >= 2);
+    const blob = `${out.data.title || ''} ${out.data.hook || ''} ${out.data.body || ''}`.toLowerCase();
+    if (topicWords.length && !topicWords.some(w => blob.includes(w))) {
+      const retry = await callClaude(prompt +
+        `\n\n[교정 지시] 직전 생성물이 주제를 벗어났습니다("${out.data.title}"). ` +
+        `이번에는 제목·훅·본문에 "${topic}"의 단어가 반드시 직접 등장해야 하며, 참고 자료의 소재(음식명·운동·브랜드 등) 언급을 금지합니다.`,
+        schema, { maxTokens: 3200, effort: 'medium' });
+      if (!retry.error && retry.data) out = retry;
+    }
+  }
+
   res.json({
-    enabled: true, model: out.model, mode, platform,
+    enabled: true, model: out.model, mode, platform, refNote,
     references: refs.map(r => ({ key: r.key, title: r.title, platform: r.platform, url: r.url })),
     result: out.data,
   });

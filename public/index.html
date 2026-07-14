@@ -110,10 +110,28 @@
       </div>
     </section>
 
+    <!-- 3-스텝 가이드 바 -->
+    <nav class="step-bar" id="step-bar">
+      <button class="step" data-scroll="topics-section">
+        <span class="step-no">1</span>
+        <span class="step-txt"><b>오늘 뭐가 터졌나</b><small>급상승 소재 · 오늘의 랭킹</small></span>
+      </button>
+      <span class="step-arrow">→</span>
+      <button class="step" data-scroll="preview-section">
+        <span class="step-no">2</span>
+        <span class="step-txt"><b>왜 터졌나</b><small>영상의 🔬 해부 버튼 클릭</small></span>
+      </button>
+      <span class="step-arrow">→</span>
+      <button class="step" data-scroll="studio-section">
+        <span class="step-no">3</span>
+        <span class="step-txt"><b>내 것으로 만들기</b><small>제목 → 대본, 터진 패턴 적용</small></span>
+      </button>
+    </nav>
+
     <!-- 콘텐츠 아이디어 스튜디오 -->
     <!-- 📡 오늘의 소재 + 키워드 탐색기 -->
     <section class="panel" id="topics-section">
-      <h2>📡 오늘의 소재 <span class="h-sub">구글 트렌드 한국 실시간 급상승 — 키워드를 누르면 지금 나온 인기 영상과 아이디어로 연결</span></h2>
+      <h2><span class="step-chip">STEP 1</span> 📡 오늘의 소재 <span class="h-sub">구글 트렌드 한국 실시간 급상승 — 키워드를 누르면 지금 나온 인기 영상과 아이디어로 연결</span></h2>
       <div id="trend-chips" class="keywords"></div>
       <div id="trend-detail" class="trend-detail hidden"></div>
       <div class="kw-explorer">
@@ -123,105 +141,7 @@
       <div id="kw-result" class="kw-result"></div>
     </section>
 
-    <!-- 👁 벤치마킹 채널 워치리스트 -->
-    <section class="panel" id="watch-section">
-      <h2>👁 벤치마킹 채널 추적 <span class="h-sub">채널을 등록하면 수집 주기마다 점검 — 채널 평균 3배를 넘는 신작이 나오면 "떡상 감지"로 알림</span></h2>
-      <div class="register-row">
-        <input id="watch-input" type="text" placeholder="유튜브 채널 @핸들 또는 URL (예: @ChimChakMan_Official)" />
-        <button id="watch-btn" class="btn-primary">＋ 추적</button>
-      </div>
-      <div id="watch-list" class="watch-list"></div>
-      <div id="spike-list"></div>
-    </section>
-
-    <!-- 🪝 훅 라이브러리 -->
-    <section class="panel" id="hooks-section">
-      <h2>🪝 한국어 훅 라이브러리 <span class="h-sub">터진 영상(채널 평균 3배↑)의 실제 오프닝 문장을 자동 수집·아키타입 분류 — 수집이 반복될수록 쌓입니다</span></h2>
-      <div id="hook-filters" class="keywords"></div>
-      <div id="hook-list" class="hook-list"></div>
-    </section>
-
-    <!-- ✏️ 제목·훅 생성기 -->
-    <section class="panel" id="titlegen-section">
-      <h2>✏️ 제목·훅 생성기 <span class="h-sub">터진 제목·검증된 훅 패턴을 근거로 아키타입별 6종 생성 + AI가 가장 강한 1개 판정</span></h2>
-      <div class="register-row">
-        <input id="tg-topic" type="text" placeholder="주제 입력 (예: 자취생 5분 요리)" />
-        <select id="tg-platform">
-          <option value="youtube">유튜브/쇼츠</option>
-          <option value="instagram">릴스</option>
-          <option value="threads">스레드</option>
-          <option value="tiktok">틱톡</option>
-        </select>
-        <button id="tg-btn" class="btn-primary">✨ 생성</button>
-      </div>
-      <div id="tg-result"></div>
-    </section>
-
-    <!-- 📊 내 채널 진단 -->
-    <section class="panel" id="mychannel-section">
-      <h2>📊 내 채널 진단 <span class="h-sub">내 채널의 기준선(중앙값)을 재고, 어떤 영상이 평균을 뚫었는지 확인 — 남의 채널을 넣어 벤치마킹해도 됩니다</span></h2>
-      <div class="register-row">
-        <input id="mych-input" type="text" placeholder="유튜브 채널 @핸들 또는 URL (예: @내채널)" />
-        <button id="mych-btn" class="btn-primary">진단</button>
-      </div>
-      <div id="mych-result"></div>
-    </section>
-
-    <!-- 📬 주간 브리핑 -->
-    <section class="panel" id="briefing-section">
-      <h2>📬 주간 브리핑 <span class="h-sub">이번 주 터진 것 · 가속 중 · 뜨는 훅 · 추천 아이디어를 한 장으로 — 니치를 넣으면 내 분야만</span></h2>
-      <div class="register-row">
-        <input id="brief-niche" type="text" placeholder="니치 (선택, 예: 요리 / 비우면 전체)" />
-        <button id="brief-btn" class="btn-primary">브리핑 생성</button>
-        <button id="brief-copy" class="btn-ghost hidden">📋 텍스트로 복사 (공유용)</button>
-      </div>
-      <div id="brief-result"></div>
-    </section>
-
-    <section class="panel idea-studio" id="ideas-section">
-      <div class="idea-head">
-        <h2>💡 콘텐츠 아이디어 <span class="h-sub">지금 공유·좋아요가 잘 되는 실제 영상에서 역산 — 모든 아이디어에 근거 영상 포함</span></h2>
-        <div class="idea-controls">
-          <div class="goal-toggle" id="goal-toggle">
-            <button data-goal="좋아요" class="active">❤️ 좋아요형</button>
-            <button data-goal="공유">🔁 공유형</button>
-          </div>
-          <input id="niche-input" type="search" placeholder="분야·키워드로 좁히기 (예: 뷰티, 먹방, 게임)" />
-          <button id="ai-idea-btn" class="btn-primary" title="ANTHROPIC_API_KEY 설정 시 Claude가 훅·제목·대본까지 생성">✨ AI로 더 받기</button>
-        </div>
-      </div>
-      <p class="muted" id="idea-basis"></p>
-      <div id="idea-formats" class="idea-formats"></div>
-      <div id="idea-cards" class="idea-cards"></div>
-      <div id="ai-ideas"></div>
-    </section>
-
-    <!-- 콘텐츠 스튜디오 (AI 생성/변환) -->
-    <section class="panel studio" id="studio-section">
-      <div class="idea-head">
-        <h2>✍️ 콘텐츠 스튜디오 <span class="h-sub">인기 콘텐츠 구조를 흡수해 내 대본·글을 만들거나, 내 초안을 바이럴하게 변환</span></h2>
-        <span id="ai-badge" class="badge"></span>
-      </div>
-      <div class="studio-controls">
-        <select id="studio-platform">
-          <option value="threads">스레드 (글)</option>
-          <option value="instagram">인스타그램 (글)</option>
-          <option value="youtube">유튜브 (대본)</option>
-          <option value="tiktok">틱톡 (대본)</option>
-        </select>
-        <div class="mode-toggle" id="studio-mode">
-          <button data-mode="create" class="active">🎬 새로 만들기</button>
-          <button data-mode="rewrite">🔁 내 글 변환</button>
-        </div>
-        <button id="studio-btn" class="btn-primary">✨ 생성</button>
-      </div>
-      <textarea id="studio-topic" rows="3" placeholder="주제나 간단한 내용을 적으세요 — 예: 자취생 냉장고 정리 꿀팁 / 첫 직장 3개월 후기 / 새 러닝화 리뷰"></textarea>
-      <textarea id="studio-draft" rows="4" style="display:none;" placeholder="내가 쓴 글/초안을 붙여넣으면, 지금 잘 되는 인기 콘텐츠 구조로 바이럴하게 다시 써줍니다."></textarea>
-      <p class="muted" id="studio-ref">참고 인기 콘텐츠는 선택한 플랫폼의 상위 인기작이 자동 사용됩니다.</p>
-      <div id="studio-result"></div>
-    </section>
-
-    <!-- 필터 -->
+    <!-- 필터 + 오늘의 랭킹 (STEP 1→2) -->
     <section class="filters">
       <div class="platform-tabs" id="platform-tabs">
         <button data-platform="all" class="tab active">전체</button>
@@ -254,6 +174,114 @@
       </div>
     </section>
 
+    <!-- 미리보기 카드 (STEP 2 진입점) -->
+    <section class="panel" id="preview-section">
+      <h2><span class="step-chip">STEP 2</span> 🎬 오늘의 랭킹 <span class="h-sub" id="preview-date"></span>
+        <span class="h-sub">· 카드 클릭 = 재생 · 🔬 해부 = 왜 터졌는지 분석 후 내 대본으로 연결</span></h2>
+      <div id="cards" class="cards"></div>
+    </section>
+
+    <!-- ✏️ 제목·훅 생성기 -->
+    <section class="panel" id="titlegen-section">
+      <h2><span class="step-chip">STEP 3</span> ✏️ 제목·훅 생성기 <span class="h-sub">터진 제목·검증된 훅 패턴을 근거로 아키타입별 6종 생성 + AI가 가장 강한 1개 판정</span></h2>
+      <div class="register-row">
+        <input id="tg-topic" type="text" placeholder="주제 입력 (예: 자취생 5분 요리)" />
+        <select id="tg-platform">
+          <option value="youtube">유튜브/쇼츠</option>
+          <option value="instagram">릴스</option>
+          <option value="threads">스레드</option>
+          <option value="tiktok">틱톡</option>
+        </select>
+        <button id="tg-btn" class="btn-primary">✨ 생성</button>
+      </div>
+      <div id="tg-result"></div>
+    </section>
+
+    <!-- 콘텐츠 스튜디오 (AI 생성/변환) -->
+    <section class="panel studio" id="studio-section">
+      <div class="idea-head">
+        <h2><span class="step-chip">STEP 3</span> ✍️ 콘텐츠 스튜디오 <span class="h-sub">인기 콘텐츠 구조를 흡수해 내 대본·글을 만들거나, 내 초안을 바이럴하게 변환</span></h2>
+        <span id="ai-badge" class="badge"></span>
+      </div>
+      <div class="studio-controls">
+        <select id="studio-platform">
+          <option value="threads">스레드 (글)</option>
+          <option value="instagram">인스타그램 (글)</option>
+          <option value="youtube">유튜브 (대본)</option>
+          <option value="tiktok">틱톡 (대본)</option>
+        </select>
+        <div class="mode-toggle" id="studio-mode">
+          <button data-mode="create" class="active">🎬 새로 만들기</button>
+          <button data-mode="rewrite">🔁 내 글 변환</button>
+        </div>
+        <button id="studio-btn" class="btn-primary">✨ 생성</button>
+      </div>
+      <textarea id="studio-topic" rows="3" placeholder="주제나 간단한 내용을 적으세요 — 예: 자취생 냉장고 정리 꿀팁 / 첫 직장 3개월 후기 / 새 러닝화 리뷰"></textarea>
+      <textarea id="studio-draft" rows="4" style="display:none;" placeholder="내가 쓴 글/초안을 붙여넣으면, 지금 잘 되는 인기 콘텐츠 구조로 바이럴하게 다시 써줍니다."></textarea>
+      <p class="muted" id="studio-ref">참고 인기 콘텐츠는 선택한 플랫폼의 상위 인기작이 자동 사용됩니다.</p>
+      <div id="studio-result"></div>
+    </section>
+
+    <!-- ── 더 깊이 보기 ── -->
+    <div class="deep-divider"><span>🔎 더 깊이 보기</span><small>아이디어 · 훅 라이브러리 · 채널 추적 · 진단 · 브리핑 · 차트</small></div>
+
+    <section class="panel idea-studio" id="ideas-section">
+      <div class="idea-head">
+        <h2>💡 콘텐츠 아이디어 <span class="h-sub">지금 공유·좋아요가 잘 되는 실제 영상에서 역산 — 모든 아이디어에 근거 영상 포함</span></h2>
+        <div class="idea-controls">
+          <div class="goal-toggle" id="goal-toggle">
+            <button data-goal="좋아요" class="active">❤️ 좋아요형</button>
+            <button data-goal="공유">🔁 공유형</button>
+          </div>
+          <input id="niche-input" type="search" placeholder="분야·키워드로 좁히기 (예: 뷰티, 먹방, 게임)" />
+          <button id="ai-idea-btn" class="btn-primary" title="AI가 훅·제목·개요까지 생성">✨ AI로 더 받기</button>
+        </div>
+      </div>
+      <p class="muted" id="idea-basis"></p>
+      <div id="idea-formats" class="idea-formats"></div>
+      <div id="idea-cards" class="idea-cards"></div>
+      <div id="ai-ideas"></div>
+    </section>
+
+    <!-- 🪝 훅 라이브러리 -->
+    <section class="panel" id="hooks-section">
+      <h2>🪝 한국어 훅 라이브러리 <span class="h-sub">터진 영상(채널 평균 3배↑)의 실제 오프닝 문장을 자동 수집·아키타입 분류 — 수집이 반복될수록 쌓입니다</span></h2>
+      <div id="hook-filters" class="keywords"></div>
+      <div id="hook-list" class="hook-list"></div>
+    </section>
+
+    <!-- 👁 벤치마킹 채널 워치리스트 -->
+    <section class="panel" id="watch-section">
+      <h2>👁 벤치마킹 채널 추적 <span class="h-sub">채널을 등록하면 수집 주기마다 점검 — 채널 평균 3배를 넘는 신작이 나오면 "떡상 감지"로 알림</span></h2>
+      <div class="register-row">
+        <input id="watch-input" type="text" placeholder="유튜브 채널 @핸들 또는 URL (예: @ChimChakMan_Official)" />
+        <button id="watch-btn" class="btn-primary">＋ 추적</button>
+      </div>
+      <div id="watch-list" class="watch-list"></div>
+      <div id="spike-list"></div>
+    </section>
+
+    <!-- 📊 내 채널 진단 -->
+    <section class="panel" id="mychannel-section">
+      <h2>📊 내 채널 진단 <span class="h-sub">내 채널의 기준선(중앙값)을 재고, 어떤 영상이 평균을 뚫었는지 확인 — 남의 채널을 넣어 벤치마킹해도 됩니다</span></h2>
+      <div class="register-row">
+        <input id="mych-input" type="text" placeholder="유튜브 채널 @핸들 또는 URL (예: @내채널)" />
+        <button id="mych-btn" class="btn-primary">진단</button>
+      </div>
+      <div id="mych-result"></div>
+    </section>
+
+    <!-- 📬 주간 브리핑 -->
+    <section class="panel" id="briefing-section">
+      <h2>📬 주간 브리핑 <span class="h-sub">이번 주 터진 것 · 가속 중 · 뜨는 훅 · 추천 아이디어를 한 장으로 — 니치를 넣으면 내 분야만</span></h2>
+      <div class="register-row">
+        <input id="brief-niche" type="text" placeholder="니치 (선택, 예: 요리 / 비우면 전체)" />
+        <button id="brief-btn" class="btn-primary">브리핑 생성</button>
+        <button id="brief-copy" class="btn-ghost hidden">📋 텍스트로 복사 (공유용)</button>
+      </div>
+      <div id="brief-result"></div>
+    </section>
+
     <!-- URL 등록 -->
     <section class="panel register-panel">
       <h2>➕ 틱톡·인스타 영상 대량 등록 <span class="h-sub">한 줄에 하나씩 여러 개를 붙여넣고 한 번에 등록하세요</span></h2>
@@ -262,13 +290,6 @@
         <button id="register-btn" class="btn-primary">＋ 등록</button>
       </div>
       <p class="muted" id="register-msg">API 키 없이 URL만으로 실지표를 수집합니다 — 틱톡: 조회수·좋아요·댓글·공유·저장 전부 · 인스타: 좋아요·댓글·작성자·게시일 (조회수 미공개) · 스레드: 작성자·본문. 틱톡·인스타는 트렌딩 자동 수집이 불가하여(로그인 벽·봇 차단) URL 등록이 유일한 방법입니다 — 여러 개를 모아 한 번에 붙여넣으세요.</p>
-    </section>
-
-    <!-- 미리보기 카드 -->
-    <section class="panel">
-      <h2>🎬 인기 영상 미리보기 <span class="h-sub" id="preview-date"></span>
-        <span class="h-sub">· 카드를 누르면 사이트 안에서 바로 재생됩니다</span></h2>
-      <div id="cards" class="cards"></div>
     </section>
 
     <!-- 인사이트 -->

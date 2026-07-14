@@ -340,6 +340,7 @@ function renderCards(videos) {
           <span>${esc(v.channel || '')}</span>
           <span>${vphBadge(v)} ${v.views ? '조회 ' + fmt(v.views) : (v.likes ? '♥ ' + fmt(v.likes) : '')}</span>
         </div>
+        ${isDemo ? '' : `<button class="deconstruct-btn card-dec" data-key="${esc(v.key)}" title="AI가 왜 터졌는지 분석 → 내 대본으로 연결">🔬 왜 터졌나 해부</button>`}
         <div class="card-meta">
           <span>게시 ${fmtDate(v.publishedAt) !== '–' ? fmtDate(v.publishedAt) : esc(v.publishedText || '–')}</span>
           <span>수집 ${fmtDateTime(v.updatedAt)}</span>
@@ -537,10 +538,35 @@ async function openDeconstruct(key) {
     <ul>${a.viralFactors.map(f => `<li class="an-factor"><b>${esc(f.factor)}</b> — ${esc(f.detail)}</li>`).join('')}</ul>
     <h4>💭 겨냥한 감정·심리</h4><div class="muted">${esc(a.targetEmotion)}</div>
     <h4>🧪 재현 공식</h4><div class="an-formula">${esc(a.formula)}</div>
+    ${a.audienceReaction ? `<h4>💬 시청자가 반응한 포인트</h4><div class="muted">${esc(a.audienceReaction)}</div>` : ''}
     <h4>✅ 내 콘텐츠에 적용하기</h4>
     <ul>${a.applyTips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+    <button class="btn-primary an-to-studio" data-key="${esc(r.video.key)}" data-platform="${esc(r.video.platform)}" data-title="${esc(r.video.title)}">
+      ✍️ STEP 3 — 이 패턴으로 내 대본 쓰기</button>
     <div class="an-model">${esc(r.model || '')}</div>`;
+  markStep(2);
 }
+
+// 해부 → 스튜디오 연결: 해부한 영상을 참고작으로 자동 지정
+let studioRefKey = null;
+document.getElementById('analysis-body').addEventListener('click', e => {
+  const btn = e.target.closest('.an-to-studio');
+  if (!btn) return;
+  studioRefKey = btn.dataset.key;
+  const sel = document.getElementById('studio-platform');
+  if ([...sel.options].some(o => o.value === btn.dataset.platform)) sel.value = btn.dataset.platform;
+  document.getElementById('studio-ref').innerHTML =
+    `🔗 참고작 지정됨: <b>${esc(btn.dataset.title.slice(0, 40))}</b> — 이 영상의 훅·구조 패턴을 적용합니다
+     <button class="btn-ghost" id="studio-ref-clear" style="padding:1px 8px;font-size:11px;">✕ 해제</button>`;
+  closeAnalysis();
+  document.getElementById('studio-section').scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('studio-topic').focus();
+});
+document.getElementById('studio-ref').addEventListener('click', e => {
+  if (e.target.id !== 'studio-ref-clear') return;
+  studioRefKey = null;
+  document.getElementById('studio-ref').textContent = '참고 인기 콘텐츠는 선택한 플랫폼의 상위 인기작이 자동 사용됩니다.';
+});
 
 // ── ✍️ 콘텐츠 스튜디오 ──
 let studioMode = 'create';
@@ -568,11 +594,13 @@ document.getElementById('studio-btn').addEventListener('click', async e => {
   try {
     const r = await fetchJSON('/api/studio', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: studioMode, platform, topic, draft }),
+      body: JSON.stringify({ mode: studioMode, platform, topic, draft, referenceKeys: studioRefKey ? [studioRefKey] : [] }),
     });
     if (r.enabled === false) { out.innerHTML = `<div class="ai-note">🔑 ${esc(r.message)}</div>`; return; }
     if (r.error) { out.innerHTML = `<div class="ai-note">오류: ${esc(r.error)}</div>`; return; }
     renderStudioResult(out, r);
+    if (r.refNote) out.insertAdjacentHTML('afterbegin', `<div class="ai-note">ℹ️ ${esc(r.refNote)}</div>`);
+    markStep(3);
   } catch (err) {
     out.innerHTML = `<div class="ai-note">요청 실패: ${esc(err.message)}</div>`;
   } finally {
@@ -720,8 +748,10 @@ function showToast(text) {
   t._timer = setTimeout(() => t.classList.remove('show'), 6000);
 }
 
-// 미리보기 카드 → 재생 모달
+// 미리보기 카드 → 해부 버튼 우선, 아니면 재생 모달
 document.getElementById('cards').addEventListener('click', e => {
+  const dec = e.target.closest('.deconstruct-btn');
+  if (dec) { e.stopPropagation(); openDeconstruct(dec.dataset.key); return; }
   const card = e.target.closest('.card.clickable');
   if (!card) return;
   const v = lastVideos.find(x => x.key === card.dataset.key);
@@ -1054,6 +1084,33 @@ document.getElementById('brief-copy').addEventListener('click', e => {
   document.getElementById('ob-start').addEventListener('click', () => done(true));
   document.getElementById('ob-skip').addEventListener('click', () => done(false));
 })();
+
+// ── 3-스텝 진행 표시 ──
+function markStep(n) {
+  try {
+    const done = JSON.parse(localStorage.getItem('tr-steps') || '{}');
+    done['s' + n] = true;
+    localStorage.setItem('tr-steps', JSON.stringify(done));
+    renderSteps();
+  } catch { /* 무시 */ }
+}
+function renderSteps() {
+  let done = {};
+  try { done = JSON.parse(localStorage.getItem('tr-steps') || '{}'); } catch { /* 무시 */ }
+  document.querySelectorAll('#step-bar .step').forEach((el, i) => {
+    el.classList.toggle('done', !!done['s' + (i + 1)]);
+    el.classList.toggle('current', !done['s' + (i + 1)] &&
+      (i === 0 || !!done['s' + i]));
+  });
+}
+document.getElementById('step-bar').addEventListener('click', e => {
+  const s = e.target.closest('.step');
+  if (!s) return;
+  document.getElementById(s.dataset.scroll)?.scrollIntoView({ behavior: 'smooth' });
+  if (s.dataset.scroll === 'topics-section') markStep(1);
+});
+markStep(1); // 페이지를 열면 STEP 1(발견)은 시작된 것
+renderSteps();
 
 renderTrends();
 renderHooks();
