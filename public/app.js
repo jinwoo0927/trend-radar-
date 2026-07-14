@@ -1,4 +1,4 @@
-const state = { platform: 'all', category: 'all', sort: 'views', q: '', limit: 50, ideaGoal: '좋아요', ideaNiche: '' };
+const state = { platform: 'all', category: 'all', sort: 'freshScore', q: '', limit: 50, ideaGoal: '좋아요', ideaNiche: '' };
 const charts = {};
 let nextCollectAt = null;
 
@@ -331,6 +331,7 @@ function renderCards(videos) {
         ${thumb}
         <span class="pf-chip pf-badge pf-${v.platform}">${PLATFORM_LABEL[v.platform] || v.platform}</span>
         ${outlierBadge(v)}
+        ${v.isNew ? '<span class="new-chip">NEW</span>' : ''}
         ${isDemo ? '<span class="demo-chip">데모</span>' : '<div class="play">▶️</div>'}
       </div>
       <div class="card-body">
@@ -385,7 +386,7 @@ function renderTable(videos) {
     <tr class="${playable ? 'playable' : ''}" data-key="${esc(v.key)}" ${playable ? 'title="클릭하면 미리보기 재생"' : ''}>
       <td>${i + 1}</td>
       <td class="title-cell">
-        ${esc(v.title)}
+        ${v.isNew ? '<span class="new-chip" style="position:static;margin-right:5px;">NEW</span>' : ''}${esc(v.title)}
         <div class="muted">${esc(v.channel || '')}
           <button class="deconstruct-btn" data-key="${esc(v.key)}" title="AI가 이 콘텐츠의 구조·성공요인 분석">🔬 해부</button>
         </div>
@@ -687,16 +688,37 @@ document.getElementById('video-rows').addEventListener('click', e => {
 
 document.getElementById('collect-btn').addEventListener('click', async e => {
   const btn = e.target;
-  btn.disabled = true; btn.textContent = '수집 중...';
+  btn.disabled = true; btn.textContent = '수집 중... (1~3분)';
   try {
-    await fetchJSON('/api/collect', { method: 'POST' });
+    const r = await fetchJSON('/api/collect', { method: 'POST' });
     await refresh();
+    // 수집의 보상을 눈에 보이게: 새로 발견한 것 요약 토스트
+    const parts = [];
+    if (r.newCount) parts.push(`🆕 새 영상 ${r.newCount}개 발견`);
+    if (r.spikeCount) parts.push(`🚨 떡상 감지 ${r.spikeCount}건`);
+    if (r.sources?.hooks) parts.push(`🪝 ${r.sources.hooks}`);
+    showToast(parts.length ? parts.join(' · ') + ' — ⚡ 오늘의 랭킹에 반영됐습니다'
+      : '수집 완료 — 새로 발견된 영상은 없습니다 (지표는 최신으로 갱신됨)');
   } catch (err) {
     alert('수집 실패: ' + err.message);
   } finally {
     btn.disabled = false; btn.textContent = '지금 수집';
   }
 });
+
+// 화면 하단 토스트 (수집 결과 등 피드백)
+function showToast(text) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 6000);
+}
 
 // 미리보기 카드 → 재생 모달
 document.getElementById('cards').addEventListener('click', e => {

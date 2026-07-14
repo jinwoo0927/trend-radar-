@@ -58,16 +58,30 @@ export function risingScore(v) {
   return growth * 100 + engagementRate(v) * 30;
 }
 
+// 신선도 점수: "오늘 터지고 있는 것"이 위로 오도록
+// 게시 최근성(지수 감쇠) × [조회 규모 + 아웃라이어 배수 + 시간당 조회수(모멘텀)]
+export function freshScoreOf(v, outlier, vph) {
+  const ageDays = v.publishedAt ? (Date.now() - new Date(v.publishedAt)) / 86400e3 : 14;
+  const recency = Math.exp(-Math.max(0, ageDays) / 3);          // 3일마다 1/e 감쇠
+  const scale = Math.log10(1 + (v.views || 0));                 // 조회 규모 (로그)
+  const outlierBoost = Math.min(outlier?.mult || 0, 20) / 4;    // 채널 평균 대비 배수
+  const vphBoost = Math.log10(1 + (vph || 0));                  // 모멘텀
+  return +(recency * (scale + outlierBoost + vphBoost)).toFixed(3);
+}
+
 export function withMetrics(videos) {
   return videos.map(v => {
     const { vph, accelerating } = vphOf(v);
+    const outlier = outlierOf(v);
     return {
       ...v,
       engagementRate: engagementRate(v),
       risingScore: risingScore(v),
-      outlier: outlierOf(v),
+      outlier,
       vph,
       accelerating,
+      freshScore: freshScoreOf(v, outlier, vph),
+      isNew: !!(v.firstSeenAt && Date.now() - new Date(v.firstSeenAt) < 24 * 3600e3),
     };
   });
 }
@@ -378,12 +392,30 @@ export function ideaContext(videos, goal, niche) {
   };
 }
 
-// 자동 텍스트 인사이트 생성
+// 자동 텍스트 인사이트 생성 — "어제와 달라진 점"을 먼저 (매번 새로 읽히도록)
 export function insights(videos) {
   const out = [];
   if (!videos.length) return out;
   const cats = categoryStats(videos);
   const plats = platformStats(videos);
+  const real = videos.filter(v => v.url && v.url !== '#');
+
+  // ① 오늘 새로 발견된 것 (24시간 내 최초 수집)
+  const fresh24 = real.filter(v => v.isNew);
+  if (fresh24.length) {
+    const topNew = [...fresh24].sort((a, b) => b.views - a.views)[0];
+    out.push(`🆕 지난 24시간 동안 **새 영상 ${fresh24.length}개**를 발견했습니다 — 그중 최고는 「${topNew.title.slice(0, 40)}」 (조회 ${topNew.views.toLocaleString('ko-KR')}회).`);
+  }
+  // ② 지금 가속 중 (시간당 조회수)
+  const hot = [...real].filter(v => v.vph > 0).sort((a, b) => b.vph - a.vph)[0];
+  if (hot && hot.vph >= 50) {
+    out.push(`🔥 지금 이 순간 가장 빠르게 크는 영상: 「${hot.title.slice(0, 40)}」 — **시간당 ${Math.round(hot.vph).toLocaleString('ko-KR')}회**씩 오르는 중${hot.accelerating ? ' (가속!)' : ''}.`);
+  }
+  // ③ 오늘의 최대 아웃라이어 (채널 평균 대비)
+  const boom = [...real].filter(v => (v.outlier?.mult || 0) >= 3).sort((a, b) => b.outlier.mult - a.outlier.mult)[0];
+  if (boom) {
+    out.push(`💥 채널 평균 대비 최대로 터진 영상: 「${boom.title.slice(0, 40)}」 — 이 채널 평소의 **${boom.outlier.mult}배** (구독자 ${(boom.outlier.channelSubs || 0).toLocaleString('ko-KR')}명 채널). 소재·형식을 벤치마킹할 1순위입니다.`);
+  }
 
   if (cats[0]) {
     const share = cats[0].views / cats.reduce((a, c) => a + c.views, 0);

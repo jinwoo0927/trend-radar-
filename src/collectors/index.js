@@ -170,9 +170,10 @@ export async function collectAll({ demoOnly = false } = {}) {
     } catch (e) { results.errors.watchlist = e.message; }
   }
 
-  // 7) 분류 후 저장
+  // 7) 분류 후 저장 — 이번 수집에서 "처음 발견된" 영상 수를 집계 (수집 버튼 보상 표시용)
   videos = videos.map(v => ({ ...v, category: v.category || classify(v) }));
-  if (videos.length) store.upsertVideos(videos);
+  results.newCount = videos.length ? store.upsertVideos(videos) : 0;
+  results.spikeCount = videos.filter(v => v.source === 'watchlist' && v.spikeAt).length;
 
   // 8) 한국어 훅 DB 자동 축적: 아웃라이어(채널 중앙값 3배↑) 영상의 대본 첫 문장을 추출·태깅.
   //    yt-dlp 비용이 커서 수집당 최대 4개, AI 태깅은 배치 1회 호출.

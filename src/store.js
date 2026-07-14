@@ -54,6 +54,11 @@ export async function load() {
   } catch (e) {
     console.error('저장소 로드 실패, 빈 상태로 시작:', e.message);
   }
+  // 마이그레이션: firstSeenAt 없는 기존 영상은 마지막 갱신 시각으로 소급 —
+  // 배포 직후 첫 수집에서 전부 NEW 로 잘못 표시되는 것을 방지
+  for (const v of Object.values(db.videos || {})) {
+    if (!v.firstSeenAt) v.firstSeenAt = v.updatedAt || v.publishedAt || new Date(0).toISOString();
+  }
   return db;
 }
 
@@ -82,10 +87,15 @@ export async function flushNow() {
 }
 
 export function upsertVideos(videos, collectedAt = new Date().toISOString()) {
+  let added = 0;
   for (const v of videos) {
     const key = `${v.platform}:${v.id}`;
     const existing = db.videos[key];
-    db.videos[key] = { ...existing, ...v, key, updatedAt: collectedAt };
+    if (!existing) added++;
+    db.videos[key] = {
+      ...existing, ...v, key, updatedAt: collectedAt,
+      firstSeenAt: existing?.firstSeenAt || collectedAt, // 🆕 배지·델타 인사이트용
+    };
     db.snapshots.push({
       key,
       at: collectedAt,
@@ -100,6 +110,7 @@ export function upsertVideos(videos, collectedAt = new Date().toISOString()) {
   );
   db.meta.lastCollectedAt = collectedAt;
   save();
+  return added;
 }
 
 // ── 채널 프로필 (아웃라이어 점수 기준선) ──
