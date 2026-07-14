@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TrendRadar — SNS 인기 영상 트렌드 분석</title>
+  <title>TrendRadar — 터진 영상 찾고, 왜 터졌는지 배우고, 내 콘텐츠로</title>
+  <meta name="description" content="구독자 대비 몇 배 터졌는지 무료로 확인하세요. 유튜브·쇼츠 아웃라이어 발굴 → AI 해부(훅·구조·시청자 반응) → 내 대본·제목 생성까지 한 곳에서. 월 6만원짜리 분석이 공짜." />
+  <!-- 링크 공유 미리보기 (카톡·슬랙·문자) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="TrendRadar — 터진 영상, 왜 떴는지 숫자로 보여드립니다" />
+  <meta property="og:description" content="💥 채널 평균 대비 몇 배 터졌는지 무료 확인 → 🔬 AI가 훅·구조 해부 → ✍️ 그 패턴으로 내 대본 완성. 크리에이터·사장님을 위한 무료 콘텐츠 무기고." />
+  <meta property="og:image" content="https://trend-radar-fbh0.onrender.com/og.jpg" />
+  <meta property="og:url" content="https://trend-radar-fbh0.onrender.com/" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
@@ -39,6 +47,7 @@
         <div class="hero-cta">
           <button class="btn-primary hero-btn" data-scroll="topics-section">💥 오늘 터진 소재 보기</button>
           <button class="btn-ghost hero-btn" data-scroll="studio-section">✍️ 내 대본 만들기</button>
+          <button class="btn-ghost" id="share-btn" title="지인에게 링크 공유">🔗 공유</button>
         </div>
         <div class="hero-props">
           <div class="prop"><span class="prop-ic">💥</span><div><b>아웃라이어 발굴</b><small>채널 평균 대비 배수·가속 감지</small></div></div>
@@ -371,18 +380,34 @@
   <!-- 온보딩 (첫 방문) -->
   <div id="onboard" class="modal hidden">
     <div class="modal-box onboard-box">
-      <h3>👋 처음 오셨네요! 30초 설정</h3>
-      <p class="muted">목적에 맞게 화면을 준비해 드립니다.</p>
+      <div class="ob-logo">📡 TrendRadar</div>
+      <h3>터진 영상을 찾고, <span class="grad">왜 터졌는지</span> 배우고,<br>내 콘텐츠로 만드세요</h3>
+      <p class="muted">월 6만원짜리 분석 기능이 무료입니다. 30초만 설정하면 내 분야에 맞춰 보여드려요.</p>
+
       <div class="ob-q">저는...</div>
       <div class="ob-opts" id="ob-purpose">
-        <button data-p="creator">🎬 크리에이터<br><small>채널을 키우고 싶어요</small></button>
-        <button data-p="business">🏪 사업자/마케터<br><small>홍보 콘텐츠가 필요해요</small></button>
+        <button data-p="creator" class="active">🎬 크리에이터<br><small>채널을 키우고 싶어요</small></button>
+        <button data-p="business">🏪 사장님/마케터<br><small>홍보 콘텐츠가 필요해요</small></button>
       </div>
-      <div class="ob-q">내 분야(니치)는... <small class="muted">(선택)</small></div>
-      <input id="ob-niche" type="text" placeholder="예: 요리, 뷰티, 부동산, 카페 운영" />
+
+      <div class="ob-q">내 분야는? <small class="muted">하나 누르거나 직접 입력 (선택)</small></div>
+      <div class="ob-presets" id="ob-presets">
+        <button>요리</button><button>뷰티</button><button>운동·헬스</button><button>재테크</button>
+        <button>여행</button><button>게임</button><button>육아</button><button>패션</button>
+        <button>카페·식당</button><button>IT·테크</button>
+      </div>
+      <input id="ob-niche" type="text" placeholder="직접 입력 — 예: 부동산, 네일샵, 캠핑" />
+
+      <div class="ob-steps">
+        <b>이렇게 쓰면 됩니다</b>
+        <div class="ob-step-row"><span class="step-no">1</span> 오늘 터진 소재·영상 확인</div>
+        <div class="ob-step-row"><span class="step-no">2</span> 🔬 해부 버튼 — 왜 터졌는지 AI 분석</div>
+        <div class="ob-step-row"><span class="step-no">3</span> ✍️ 그 패턴으로 내 대본·제목 완성</div>
+      </div>
+
       <div class="ob-actions">
-        <button id="ob-start" class="btn-primary">시작하기</button>
-        <button id="ob-skip" class="btn-ghost">건너뛰기</button>
+        <button id="ob-start" class="btn-primary">🚀 시작하기</button>
+        <button id="ob-skip" class="btn-ghost">일단 구경하기</button>
       </div>
     </div>
   </div>

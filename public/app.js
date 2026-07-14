@@ -1069,6 +1069,14 @@ document.getElementById('brief-copy').addEventListener('click', e => {
     document.querySelectorAll('#ob-purpose button').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
   });
+  // 분야 프리셋 칩 — 타이핑 없이 원클릭 선택
+  document.getElementById('ob-presets').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    document.querySelectorAll('#ob-presets button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('ob-niche').value = b.textContent.trim();
+  });
   const done = save => {
     const niche = save ? document.getElementById('ob-niche').value.trim() : '';
     localStorage.setItem('tr-onboard', JSON.stringify({ purpose, niche, at: Date.now() }));
@@ -1078,12 +1086,31 @@ document.getElementById('brief-copy').addEventListener('click', e => {
       if (ideaNiche) { ideaNiche.value = niche; state.ideaNiche = niche; }
       document.getElementById('kw-input').value = niche;
       document.getElementById('brief-niche').value = niche;
-      document.getElementById('topics-section').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('tg-topic').value = niche;
     }
+    // 첫 행동 안내: STEP 1로 데려가고 뭘 하면 되는지 알려준다
+    document.getElementById('topics-section').scrollIntoView({ behavior: 'smooth' });
+    showToast(niche
+      ? `👇 STEP 1부터 따라오세요 — 아래 급상승 키워드를 누르거나, 키워드 탐색기에 "${niche}"가 채워져 있으니 [확장]을 눌러보세요!`
+      : '👇 STEP 1부터 따라오세요 — 급상승 키워드를 누르면 지금 터지는 영상이 보입니다!');
   };
   document.getElementById('ob-start').addEventListener('click', () => done(true));
   document.getElementById('ob-skip').addEventListener('click', () => done(false));
 })();
+
+// ── 🔗 지인 공유 ──
+document.getElementById('share-btn').addEventListener('click', async () => {
+  const pitch = '내 채널 평균보다 몇 배 터졌는지 무료로 보여주는 사이트 발견! 터진 영상 AI 해부 → 내 대본까지 만들어줘요 📡';
+  const url = location.origin;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'TrendRadar', text: pitch, url });
+    } else {
+      await navigator.clipboard.writeText(`${pitch}\n${url}`);
+      showToast('📋 소개글+링크가 복사됐습니다 — 카톡·문자에 붙여넣으세요!');
+    }
+  } catch { /* 사용자가 공유 취소 */ }
+});
 
 // ── 3-스텝 진행 표시 ──
 function markStep(n) {
